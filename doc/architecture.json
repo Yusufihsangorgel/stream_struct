@@ -1,0 +1,20 @@
+{
+  "type": "flow",
+  "theme": "dark",
+  "title": "stream_struct: tokens in, a typed object as it fills",
+  "gapX": 104,
+  "gapY": 76,
+  "nodes": [
+    { "id": "P", "label": "provider\nSSE chunks", "col": 0, "row": 1, "shape": "rect", "color": "blue" },
+    { "id": "A", "label": "delta adapter\nopenAi / anthropic\n/ gemini", "col": 1, "row": 1, "shape": "rect", "color": "slate" },
+    { "id": "C", "label": "parsePartialJson\nclose open strings\n+ containers, drop\ndangling key / comma", "col": 2, "row": 1, "shape": "rounded", "color": "violet" },
+    { "id": "V", "label": "value so far\nMap / List", "col": 3, "row": 1, "shape": "rect", "color": "green" },
+    { "id": "T", "label": "streamPartial<T>\ntyped object", "col": 4, "row": 1, "shape": "rect", "color": "amber" }
+  ],
+  "edges": [
+    { "from": "P", "to": "A", "label": "chunk" },
+    { "from": "A", "to": "C", "label": "text delta" },
+    { "from": "C", "to": "V", "label": "each token" },
+    { "from": "V", "to": "T", "label": "build(map)" }
+  ]
+}

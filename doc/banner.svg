@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" font-family="Menlo, monospace">
+  <rect width="1200" height="360" fill="#0B1220"/>
+
+  <!-- title block -->
+  <text x="64" y="150" font-size="52" font-weight="bold" fill="#E2E8F0">stream_struct</text>
+  <text x="66" y="196" font-size="21" fill="#94A3B8">A model's token stream, parsed into the object</text>
+  <text x="66" y="226" font-size="21" fill="#94A3B8">as it fills in. Tolerant JSON, typed.</text>
+  <text x="66" y="286" font-size="16" fill="#475569">openAi / anthropic / gemini adapters  ·  Stream&lt;Partial&lt;T&gt;&gt;</text>
+
+  <!-- progressive-fill motif: the same object, three snapshots as tokens arrive -->
+  <g font-size="17">
+    <text x="748" y="120" fill="#475569">{ "title": "Foca</text>
+    <text x="748" y="170" fill="#64748B">{ "title": "Focaccia", "min":</text>
+    <rect x="740" y="196" width="392" height="40" rx="8" fill="#0E1A2E" stroke="#1E3A5F"/>
+    <text x="756" y="222" fill="#E2E8F0">{ "title": "Focaccia", "min": 20 }</text>
+  </g>
+  <!-- arrow marking the growth to the complete value -->
+  <path d="M726 128 l0 96 m0 0 l-6 -7 m6 7 l6 -7" stroke="#38BDF8" stroke-width="1.8" fill="none"/>
+  <text x="756" y="262" font-size="13" fill="#475569">each token, the object so far</text>
+</svg>
