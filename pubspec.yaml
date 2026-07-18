@@ -1,9 +1,9 @@
 name: stream_struct
 description: >-
   Turn a language model's token stream into a stream of the structured object as
-  it fills in. Tolerant incremental JSON parsing plus OpenAI, Anthropic, and
-  Gemini delta adapters, so a UI can render structured output while it arrives.
-version: 0.1.0
+  it fills in. Tolerant partial JSON parsing with OpenAI, Anthropic, and Gemini
+  adapters.
+version: 0.1.1
 repository: https://github.com/Yusufihsangorgel/stream_struct
 issue_tracker: https://github.com/Yusufihsangorgel/stream_struct/issues
 topics:

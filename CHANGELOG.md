@@ -1,3 +1,8 @@
+## 0.1.1
+
+- Shorten the pubspec description so it fits pub.dev's 180-character
+  guideline; no API or behaviour change.
+
 ## 0.1.0
 
 - Initial release.
