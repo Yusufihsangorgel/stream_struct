@@ -1,9 +1,9 @@
 name: stream_struct
 description: >-
-  Turn a language model's token stream into a stream of the structured object as
-  it fills in. Tolerant partial JSON parsing with OpenAI, Anthropic, and Gemini
-  adapters.
-version: 0.1.1
+  Stream an LLM's structured output as it arrives: tolerant partial JSON parsing
+  that fills in the typed object token by token. Provider-agnostic, you bring
+  the token stream.
+version: 0.1.2
 repository: https://github.com/Yusufihsangorgel/stream_struct
 issue_tracker: https://github.com/Yusufihsangorgel/stream_struct/issues
 topics:
