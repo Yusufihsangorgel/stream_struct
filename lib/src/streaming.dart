@@ -100,6 +100,30 @@ Stream<Object?> streamPartialJsonFrom(
   );
 }
 
+/// [streamPartial] over a provider's decoded chunks: pulls each text fragment
+/// out with [extractor], then maps the growing object through [build].
+///
+/// This is the whole path in one call, which is the shape most callers want:
+///
+/// ```dart
+/// streamPartialFrom(sseJson(response), openAiDelta, Recipe.fromPartial)
+///     .listen((recipe) => setState(() => _recipe = recipe));
+/// ```
+///
+/// Without it, wanting both a typed value and a provider's chunks meant
+/// rebuilding the map/where/cast that [streamPartialJsonFrom] already does.
+Stream<T> streamPartialFrom<T>(
+  Stream<Map<String, dynamic>> chunks,
+  DeltaExtractor extractor,
+  T Function(Map<String, dynamic> partial) build,
+) async* {
+  await for (final value in streamPartialJsonFrom(chunks, extractor)) {
+    if (value is Map<String, dynamic>) {
+      yield build(value);
+    }
+  }
+}
+
 /// Maps each partial JSON object through [build] to yield a typed value as the
 /// object fills in.
 ///
@@ -107,6 +131,9 @@ Stream<Object?> streamPartialJsonFrom(
 /// it is called on every growth of the object. This gives typed streaming today
 /// with a small hand-written builder; generated builders are planned for a later
 /// release. Non-object partials (a bare array or scalar) are skipped.
+///
+/// Use [streamPartialFrom] when the source is a provider's chunk stream rather
+/// than bare text deltas.
 Stream<T> streamPartial<T>(
   Stream<String> deltas,
   T Function(Map<String, dynamic> partial) build,

@@ -29,4 +29,5 @@ export 'src/streaming.dart'
         geminiDelta,
         streamPartialJson,
         streamPartialJsonFrom,
-        streamPartial;
+        streamPartial,
+        streamPartialFrom;

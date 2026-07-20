@@ -83,6 +83,22 @@ final titles = streamPartial<String>(
 );
 ```
 
+From an HTTP response, `streamPartialFrom` is the same thing over a provider's
+chunks, which is the whole path in one call:
+
+```dart
+streamPartialFrom(sseJson(response), openAiDelta, Recipe.fromPartial)
+    .listen((recipe) => setState(() => _recipe = recipe));
+```
+
+|                  | text fragments      | a provider's chunks     |
+| ---------------- | ------------------- | ----------------------- |
+| `Object?` frames | `streamPartialJson` | `streamPartialJsonFrom` |
+| your type        | `streamPartial`     | `streamPartialFrom`     |
+
+`example/openai_end_to_end.dart` runs that path end to end with no API key, on
+bytes chopped at arbitrary boundaries the way a socket delivers them.
+
 ## What it handles
 
 - open string values are kept and closed, so partial text shows as it types

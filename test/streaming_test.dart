@@ -72,4 +72,70 @@ void main() {
     ).toList();
     expect(names.last, 'Ada');
   });
+
+  group('streamPartialFrom', () {
+    test('goes from provider chunks to a typed value in one call', () async {
+      final chunks = Stream.fromIterable(<Map<String, dynamic>>[
+        {
+          'choices': [
+            {
+              'delta': {'role': 'assistant'},
+            },
+          ],
+        },
+        {
+          'choices': [
+            {
+              'delta': {'content': '{"name": "Ad'},
+            },
+          ],
+        },
+        {
+          'choices': [
+            {
+              'delta': {'content': 'a", "age": 3'},
+            },
+          ],
+        },
+        {
+          'choices': [
+            {
+              'delta': {'content': '6}'},
+            },
+          ],
+        },
+      ]);
+
+      final names = await streamPartialFrom(
+        chunks,
+        openAiDelta,
+        (partial) => '${partial['name'] ?? ''}/${partial['age'] ?? '?'}',
+      ).toList();
+
+      // One frame per chunk that carries text, so the role-only chunk produces
+      // none, and the chunk that both finishes the name and opens the age
+      // produces one rather than two.
+      //
+      // The age reads 3 before it reads 36: a number's digits arrive like any
+      // other characters, so a partial value is not merely incomplete, it can
+      // be provisionally wrong. Render it, but don't act on it until the end.
+      expect(names, ['Ad/?', 'Ada/3', 'Ada/36']);
+    });
+
+    test('skips a stream that never forms an object', () async {
+      final chunks = Stream.fromIterable(<Map<String, dynamic>>[
+        {
+          'choices': [
+            {
+              'delta': {'content': '[1, 2'},
+            },
+          ],
+        },
+      ]);
+      expect(
+        await streamPartialFrom(chunks, openAiDelta, (p) => p.length).toList(),
+        isEmpty,
+      );
+    });
+  });
 }
