@@ -1,10 +1,9 @@
 name: stream_struct
 description: >-
-  Stream an LLM's structured output as it arrives: tolerant partial JSON
-  parsing that fills in the typed object token by token. Decodes the
-  Server-Sent Events body, with delta extractors for OpenAI, Anthropic and
-  Gemini.
-version: 0.2.0
+  Stream an LLM's structured output as it arrives: tolerant partial JSON that
+  fills the typed object token by token. Decodes SSE, with OpenAI, Anthropic
+  and Gemini extractors.
+version: 0.2.1
 repository: https://github.com/Yusufihsangorgel/stream_struct
 issue_tracker: https://github.com/Yusufihsangorgel/stream_struct/issues
 topics:

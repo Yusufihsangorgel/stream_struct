@@ -1,3 +1,9 @@
+## 0.2.1
+
+- Shorten the pub.dev description back under the 180-character limit. The
+  previous release grew it past that, which costs the "valid pubspec" points
+  and truncates the text search engines show.
+
 ## 0.2.0
 
 - Add Server-Sent Events decoding: `sseJson` turns a provider's raw response
