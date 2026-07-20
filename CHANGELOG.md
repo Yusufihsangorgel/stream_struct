@@ -1,3 +1,20 @@
+## 0.2.0
+
+- Add Server-Sent Events decoding: `sseJson` turns a provider's raw response
+  stream into one JSON event per message, and `sseData` gives the payloads
+  undecoded. The package started after that step, so every caller wrote the
+  same line handling; now a response body goes end to end,
+  `streamPartialJsonFrom(sseJson(response), openAiDelta)`. Chunk boundaries
+  inside a line or an event are handled, several `data:` lines in one event are
+  joined with newlines, one leading space after the colon is stripped, `:`
+  comments and the `event:`/`id:`/`retry:` fields are ignored, CRLF bodies work,
+  and the `[DONE]` sentinel ends the stream instead of being parsed.
+  `sseDataFromLines` and `sseJsonFromData` take over if your transport already
+  split the stream.
+- Docs: correct the pub.dev description. It said "provider-agnostic, you bring
+  the token stream", which undersold the package: `openAiDelta`,
+  `anthropicDelta` and `geminiDelta` ship with it and always have.
+
 ## 0.1.2
 
 - Docs: sharpen the pub.dev description to lead with the value and the terms people search.

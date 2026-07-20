@@ -49,17 +49,27 @@ await for (final partial in streamPartialJson(modelDeltas)) {
 
 ## Plug in your provider
 
-Decode each Server-Sent Event into a `Map`, then let an adapter pull the text
-fragment out. OpenAI, Anthropic, and Gemini shapes are built in.
+`sseJson` decodes the Server-Sent Events body providers stream, and an adapter
+pulls the text fragment out of each event. OpenAI, Anthropic, and Gemini shapes
+are built in, so a response goes end to end with no line handling of your own:
 
 ```dart
-// chunks is Stream<Map<String, dynamic>> of decoded SSE events
-streamPartialJsonFrom(chunks, openAiDelta)      // choices[0].delta.content
+final response = await request.close();
+
+streamPartialJsonFrom(sseJson(response), openAiDelta)  // choices[0].delta.content
     .listen((partial) => print(partial));
 
-streamPartialJsonFrom(chunks, anthropicDelta);  // delta.text / delta.partial_json
-streamPartialJsonFrom(chunks, geminiDelta);     // candidates[0].content.parts[0].text
+streamPartialJsonFrom(sseJson(response), anthropicDelta); // delta.text / delta.partial_json
+streamPartialJsonFrom(sseJson(response), geminiDelta);    // candidates[0].content.parts[0].text
 ```
+
+`sseJson` takes the raw byte stream, so chunk boundaries falling inside a line
+or an event are handled for you. It follows the event-stream format: several
+`data:` lines in one event are joined with newlines, one leading space after
+the colon is stripped, `:` comments and the `event:`/`id:`/`retry:` fields are
+ignored, and the `[DONE]` sentinel ends the stream rather than being parsed. If
+you want the payloads without the JSON decode, use `sseData`, and if your
+transport already gives you lines, `sseDataFromLines`.
 
 ## Type it
 
