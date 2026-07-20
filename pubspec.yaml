@@ -3,7 +3,7 @@ description: >-
   Stream an LLM's structured output as it arrives: tolerant partial JSON that
   fills the typed object token by token. Decodes SSE, with OpenAI, Anthropic
   and Gemini extractors.
-version: 0.3.0
+version: 0.3.1
 repository: https://github.com/Yusufihsangorgel/stream_struct
 issue_tracker: https://github.com/Yusufihsangorgel/stream_struct/issues
 topics:
@@ -12,6 +12,12 @@ topics:
   - json
   - streaming
   - structured-output
+
+screenshots:
+  - description: >-
+      The example running: a recipe object printed again on every fragment, its 
+      title and ingredient count filling in as the stream arrives.
+    path: doc/demo.gif
 
 environment:
   sdk: ^3.5.0

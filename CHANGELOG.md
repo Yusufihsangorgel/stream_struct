@@ -1,3 +1,9 @@
+## 0.3.1
+
+- Declare the recording in `pubspec.yaml` so pub.dev renders it on the package
+  page. It was already in the repository and the README, but pub.dev shows only
+  what the `screenshots:` field points at.
+
 ## 0.3.0
 
 - `streamPartialFrom` completes the four ways in. There were entry points for
