@@ -1,3 +1,17 @@
+## 0.3.2
+
+- Fix `streamPartialJson` (and `streamPartialJsonFrom`, which wraps it)
+  silently dropping every frame of a stream that resolves to a top-level JSON
+  `null`. `parsePartialJson` returns `null` both for "nothing decodable yet"
+  and for a buffer that decodes to the literal `null`, and `streamPartialJson`
+  treated the two the same: skip the frame. A model answering bare `null` (a
+  common "nothing matched" schema) produced no frames and no error, on every
+  delta, for the rest of the stream, which reads as a stalled connection
+  rather than a real answer. `streamPartialJson` now resolves that ambiguity
+  internally, so a genuine top-level `null` is emitted once, like any other
+  value. `parsePartialJson`'s own `Object?` contract is unchanged: called
+  directly, it still cannot tell the two cases apart.
+
 ## 0.3.1
 
 - Declare the recording in `pubspec.yaml` so pub.dev renders it on the package

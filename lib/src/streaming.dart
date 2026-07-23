@@ -65,22 +65,24 @@ String? geminiDelta(Map<String, dynamic> chunk) {
 }
 
 /// Accumulates a stream of text [deltas] and, after each one, emits the JSON
-/// value parsed so far via [parsePartialJson].
+/// value parsed so far.
 ///
 /// Frames that do not parse yet, and frames whose value is unchanged from the
 /// previous emission, are skipped, so listeners only see the object actually
-/// growing.
+/// growing. Unlike calling [parsePartialJson] on each buffer, a resolved
+/// top-level `null` is told apart from "nothing parseable yet" here, and is
+/// emitted once as that value rather than skipped forever.
 Stream<Object?> streamPartialJson(Stream<String> deltas) async* {
   final buffer = StringBuffer();
   String? lastEncoded;
   await for (final delta in deltas) {
     buffer.write(delta);
-    final value = parsePartialJson(buffer.toString());
-    if (value == null) continue;
-    final encoded = jsonEncode(value);
+    final result = parsePartialJsonResult(buffer.toString());
+    if (!result.hasValue) continue;
+    final encoded = jsonEncode(result.value);
     if (encoded == lastEncoded) continue;
     lastEncoded = encoded;
-    yield value;
+    yield result.value;
   }
 }
 

@@ -22,6 +22,15 @@ void main() {
         {'a': 1},
       ]);
     });
+
+    test('emits a frame when the value itself is a top-level null', () async {
+      // A resolved `null` and "nothing parseable yet" both read as `null`
+      // from parsePartialJson; without disambiguation this stream would end
+      // having emitted nothing, indistinguishable from a stalled connection.
+      final deltas = Stream.fromIterable(['nu', 'll']);
+      final frames = await streamPartialJson(deltas).toList();
+      expect(frames, [null]);
+    });
   });
 
   group('provider adapters', () {

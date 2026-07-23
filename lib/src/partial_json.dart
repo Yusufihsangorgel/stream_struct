@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:meta/meta.dart';
+
 /// Decodes a possibly-truncated JSON [buffer] into the value it represents so
 /// far.
 ///
@@ -16,16 +18,39 @@ import 'dart:convert';
 /// Returns `null` while nothing is decodable yet: an empty buffer, a lone `{`
 /// whose only content is a partial key, or a half-written literal such as `tr`.
 /// A caller streaming deltas should treat `null` as "no update this frame" and
-/// keep the previous value; the next delta usually resolves it.
+/// keep the previous value; the next delta usually resolves it. This also
+/// means a buffer that fully decodes to the JSON literal `null` reads the same
+/// as "not decodable yet"; called directly, [parsePartialJson] cannot tell the
+/// two apart. [streamPartialJson] can, and emits a resolved top-level `null`
+/// rather than dropping it.
 Object? parsePartialJson(String buffer) {
+  final result = parsePartialJsonResult(buffer);
+  return result.hasValue ? result.value : null;
+}
+
+/// The outcome of decoding a partial buffer: whether it decoded to a value at
+/// all, and the value if so.
+///
+/// [parsePartialJson] collapses this to a plain `Object?`, where "nothing
+/// decodable yet" and "decoded to the JSON literal `null`" both read as
+/// `null`. [streamPartialJson] uses this instead so it can tell those two
+/// cases apart. Not part of the package's public API.
+@internal
+typedef PartialJsonResult = ({bool hasValue, Object? value});
+
+/// Like [parsePartialJson], but returns a [PartialJsonResult] so "nothing
+/// decodable yet" and "decoded to `null`" stay distinguishable. Not part of
+/// the package's public API.
+@internal
+PartialJsonResult parsePartialJsonResult(String buffer) {
   final json = _completeJson(buffer);
-  if (json == null) return null;
+  if (json == null) return (hasValue: false, value: null);
   try {
-    return jsonDecode(json);
+    return (hasValue: true, value: jsonDecode(json));
   } on FormatException {
     // The completion was still not valid (for example a half-written number or
     // literal). Skip this frame rather than throw; the next delta resolves it.
-    return null;
+    return (hasValue: false, value: null);
   }
 }
 
