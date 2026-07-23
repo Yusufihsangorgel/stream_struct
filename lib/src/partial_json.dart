@@ -15,10 +15,18 @@ import 'package:meta/meta.dart';
 /// yields the structure built up to that point, which is what a progressive UI
 /// wants to render.
 ///
-/// Returns `null` while nothing is decodable yet: an empty buffer, a lone `{`
-/// whose only content is a partial key, or a half-written literal such as `tr`.
-/// A caller streaming deltas should treat `null` as "no update this frame" and
-/// keep the previous value; the next delta usually resolves it. This also
+/// Returns `null` while nothing is decodable yet: an empty buffer, or a value
+/// still resolving into a scalar, such as a half-written literal `tr` or the
+/// number `12.`. A caller streaming deltas should treat `null` as "no update
+/// this frame" and keep the previous value; the next delta usually resolves it.
+///
+/// Structure that has already arrived is returned even when it is empty, so a
+/// buffer whose only content is an opened container reads as that container
+/// rather than as `null`: `parsePartialJson('{"titl')` is `{}`, because the
+/// buffer has established that the value is an object and only the first key
+/// is incomplete. In a growing array, an element that has just opened appears
+/// as an empty one: `parsePartialJson('[{"a": 1}, {"b')` is `[{a: 1}, {}]`.
+/// This also
 /// means a buffer that fully decodes to the JSON literal `null` reads the same
 /// as "not decodable yet"; called directly, [parsePartialJson] cannot tell the
 /// two apart. [streamPartialJson] can, and emits a resolved top-level `null`

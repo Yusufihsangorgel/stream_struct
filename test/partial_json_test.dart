@@ -45,6 +45,11 @@ void main() {
           {'tags': ['a', 'b']});
     });
 
+    test('reports an element that has only just opened as an empty one', () {
+      expect(parsePartialJson('[{"a": 1}, {"b'),
+          [{'a': 1}, <String, Object?>{}]);
+    });
+
     test('keeps a valid partial number', () {
       expect(parsePartialJson('{"n":12'), {'n': 12});
     });

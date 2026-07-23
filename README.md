@@ -31,9 +31,16 @@ parsePartialJson('{"a": 1, "tags": ["x"');       // {a: 1, tags: [x]}
 parsePartialJson('{"a": 1, "colo');              // {a: 1}   (partial key dropped)
 ```
 
-It returns `null` while nothing is decodable yet (an empty buffer, a lone `{`
-with only a partial key, a half-written `tr`). Treat `null` as "no update this
-frame" and keep the previous value; the next token resolves it.
+It returns `null` while nothing is decodable yet: an empty buffer, or a value
+that is still an unresolved scalar (`tr` on its way to `true`, `12.` on its way
+to a number). Treat `null` as "no update this frame" and keep the previous
+value; the next token resolves it.
+
+Structure that has already arrived is returned even when it is still empty, so
+`parsePartialJson('{"titl')` is `{}` rather than `null`: the buffer has told you
+it is an object, only the first key is incomplete. The same goes for a growing
+array, where an element that has only just opened shows up as an empty one:
+`parsePartialJson('[{"a": 1}, {"b')` is `[{a: 1}, {}]`.
 
 ## Stream the object as it grows
 
@@ -108,8 +115,10 @@ bytes chopped at arbitrary boundaries the way a socket delivers them.
 - a valid partial number is kept; an unresolved literal skips that one frame
 
 It does the retrieval-of-structure, not generation. It never calls a model; you
-bring the stream. A frame that still will not parse yields `null` rather than a
-guess, which keeps a wrong intermediate value off your screen.
+bring the stream. An unresolved scalar yields `null` rather than a guess, which
+keeps a half-written value off your screen; structure that has arrived is
+reported as far as it goes, so a container the model has opened but not yet
+filled appears as an empty one.
 
 ## Roadmap
 

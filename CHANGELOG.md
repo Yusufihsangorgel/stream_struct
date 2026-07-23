@@ -1,3 +1,23 @@
+## 0.3.3
+
+- Correct what `parsePartialJson` says it returns. The README and the doc
+  comment both listed "a lone `{` with only a partial key" among the cases that
+  return `null`, and that has never been what the code does: `'{"titl'` decodes
+  to `{}`, not to `null`, and the package's own test has asserted exactly that
+  since the function was written. So the documentation contradicted both the
+  behaviour and the test suite.
+- The real rule, now written down in both places: `null` means an empty buffer
+  or a value still resolving into a scalar, such as `tr` on its way to `true`.
+  Structure that has already arrived comes back even when it is still empty,
+  because the buffer has established what the value is: an object whose first
+  key is half-written reads as `{}`, and an array whose newest element has only
+  just opened reads with an empty element at the end, `[{a: 1}, {}]`. That
+  second case is now covered by a test as well, since it is the one that shows
+  up as an unexpected frame in a stream.
+- No behaviour change: this release only makes the documentation describe the
+  code. It lands before 1.0.0 because 1.0.0 would freeze the documented
+  contract, and freezing a false one leaves no good way out.
+
 ## 0.3.2
 
 - Fix `streamPartialJson` (and `streamPartialJsonFrom`, which wraps it)
