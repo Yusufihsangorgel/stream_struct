@@ -49,8 +49,11 @@ token, skipping frames that do not parse yet or that did not change.
 
 ```dart
 await for (final partial in streamPartialJson(modelDeltas)) {
-  final map = partial as Map<String, dynamic>;
-  setState(() => _draft = map);   // render the object filling in
+  // A model can answer with something that is not an object — `null`, a bare
+  // string, an array — and that arrives here as a frame too, so check before
+  // casting rather than assuming the happy shape.
+  if (partial is! Map<String, dynamic>) continue;
+  setState(() => _draft = partial);   // render the object filling in
 }
 ```
 

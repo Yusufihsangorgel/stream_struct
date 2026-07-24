@@ -1,3 +1,14 @@
+## 0.3.4
+
+- **Fix the README's own streaming example.** It cast every frame with
+  `partial as Map<String, dynamic>`, and 0.3.2 added the top-level-`null` frame
+  on purpose — so a model that answers `null` made the documented example throw
+  `_TypeError`. Reproduced with the README lines verbatim over the deltas `nu`
+  then `ll`. The example now checks the shape before using it, which is what a
+  caller has to do anyway once the answer can be a scalar or an array.
+- Stop shipping `doc/blog/` in the published archive. It held a diagram used by
+  a write-up, not by the package. 249 KB compressed before, 112 KB after.
+
 ## 0.3.3
 
 - Correct what `parsePartialJson` says it returns. The README and the doc
