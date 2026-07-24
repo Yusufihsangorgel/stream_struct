@@ -1,3 +1,18 @@
+## 0.3.9
+
+- **Fix objects that vanished mid-stream while a value or key was resolving.**
+  Two cases left invalid JSON in the completed buffer, which failed the decode of
+  the *whole* object rather than of the one unfinished field:
+  a started-but-unresolved scalar value (`{"a":1,"n":12.` or `{"a":1,"n":tr`),
+  and a complete object key with no colon yet (`{"name":"Ada","score"`). Both
+  returned `null`, so during streaming an object would disappear the instant a
+  number grew a decimal point or the next key finished — taking its already
+  resolved fields with it. They now drop just the unfinished entry and keep the
+  object, the same as a dangling key or colon, matching the documented rule that
+  structure which has arrived is returned even when a field is incomplete. Found
+  by streaming values one character at a time and watching for the object to drop
+  to `null`; a property test now does exactly that across several shapes.
+
 ## 0.3.8
 
 - Document that an in-band provider error event is not surfaced. A provider that

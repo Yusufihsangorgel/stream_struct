@@ -58,9 +58,44 @@ void main() {
       expect(parsePartialJson('{"n":12'), {'n': 12});
     });
 
-    test('skips a frame with an unresolved literal', () {
-      // "tr" is not yet "true"; better to emit nothing than a wrong value.
-      expect(parsePartialJson('{"ok":tr'), isNull);
+    test('drops an unresolved-value field but keeps the object', () {
+      // "tr" is not yet "true", so the field is dropped — but the object has
+      // arrived and is returned, matching a colon with no value ({"ok":} is {}).
+      // A resolved sibling must survive: the object must not vanish because one
+      // field is still being typed.
+      expect(parsePartialJson('{"ok":tr'), <String, Object?>{});
+      expect(parsePartialJson('{"a":1,"ok":tr'), {'a': 1});
+      expect(parsePartialJson('{"a":1,"n":12.'), {'a': 1});
+      // A complete key with no colon yet is a dangling key, dropped the same way.
+      expect(parsePartialJson('{"a":1,"next"'), {'a': 1});
+    });
+
+    test('an object never vanishes mid-stream once it has a resolved field',
+        () {
+      // Streaming a value character by character used to null the whole object
+      // the instant a value or key started but had not resolved. Feed several
+      // shapes one char at a time and assert the value never drops back to null
+      // after a non-empty container has appeared.
+      for (final full in [
+        '{"name": "Ada", "score": 12.5}',
+        '{"a": 1, "b": true, "c": [1, 2.5, "x"], "d": {"e": null}}',
+        '[{"id": 1, "tags": ["x", "y"]}, {"id": 2}]',
+        '{"neg": -5, "exp": 1.2e10}',
+      ]) {
+        final buf = StringBuffer();
+        var seenNonEmpty = false;
+        for (var i = 0; i < full.length; i++) {
+          buf.write(full[i]);
+          final frame = parsePartialJson(buf.toString());
+          if ((frame is Map && frame.isNotEmpty) ||
+              (frame is List && frame.isNotEmpty)) {
+            seenNonEmpty = true;
+          } else if (seenNonEmpty) {
+            expect(frame, isNotNull,
+                reason: 'vanished at "${buf.toString()}" for $full');
+          }
+        }
+      }
     });
 
     test('does not confuse braces inside a string', () {

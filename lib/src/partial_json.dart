@@ -152,10 +152,41 @@ String _trimTail(String s, List<_Frame> frames) {
     if (frames.isNotEmpty) return _dropCurrentEntry(s, frames.last.entryStart);
     return t.substring(0, t.length - 1);
   }
-  // A complete value, an empty container, or a trailing scalar. A valid partial
-  // number ("12") completes fine; an invalid one ("12." / "tr") is caught by
-  // the jsonDecode fallback in parsePartialJson.
+  if (last == '"') {
+    // A closed string as the tail is a value (keep it) unless it is a dangling
+    // object key with no colon yet, like the `"score"` in
+    // `{"name":"Ada","score"` — that is not valid JSON as a key without a
+    // value, so drop the entry, the same as a still-being-typed key.
+    if (frames.isNotEmpty && frames.last.isObject && !frames.last.sawColon) {
+      return _dropCurrentEntry(s, frames.last.entryStart);
+    }
+    return t;
+  }
+  // A just-closed container (`}`, `]`) is kept as is. Otherwise the tail is a
+  // scalar value. A resolved one ("12", "true") completes fine, but an
+  // unresolved one ("12.", "1e", "tr") is not valid JSON, and leaving it would
+  // fail the decode of the *whole* buffer — an object mid-stream would vanish
+  // the instant a value started resolving. Drop just that entry instead, the
+  // same as a dangling key or colon, so the structure and its resolved
+  // siblings survive.
+  if (last != '}' && last != ']') {
+    final token = RegExp(r'''[^\s{}\[\]:,"]+$''').firstMatch(t)?.group(0);
+    if (token != null && !_isResolvedScalar(token)) {
+      if (frames.isNotEmpty) {
+        return _dropCurrentEntry(s, frames.last.entryStart);
+      }
+      return ''; // a top-level unresolved scalar: nothing decodable yet.
+    }
+  }
   return t;
+}
+
+/// Whether [token] is a complete JSON scalar, as opposed to one still being
+/// typed (`12.`, `1e`, `-`, `tr`, `fals`).
+bool _isResolvedScalar(String token) {
+  if (token == 'true' || token == 'false' || token == 'null') return true;
+  return RegExp(r'^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$')
+      .hasMatch(token);
 }
 
 String _dropCurrentEntry(String s, int entryStart) {
