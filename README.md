@@ -83,6 +83,16 @@ it ignores the prose text block a model usually emits first, because splicing
 that onto the JSON would break parsing. If instead you asked for raw JSON as
 plain text with no tool, use `anthropicTextDelta`.
 
+`sseJson` decodes SSE frames; it does not interpret what is in them. A provider
+that signals a mid-stream failure with a data event — an OpenAI `{"error": ...}`
+frame, say, after a rate limit — sends that as data, and the delta extractor
+returns nothing for it, the same as for any non-content event. The stream then
+ends normally with whatever partial value had accumulated, and no error is
+raised: a truncated answer can look like a finished one. A genuine stream error
+(a dropped socket) still propagates; it is only an in-band error *event* that is
+skipped. If a provider signals errors this way, check for its error frame
+yourself rather than trusting that a completed stream means a complete answer.
+
 `sseJson` takes the raw byte stream, so chunk boundaries falling inside a line
 or an event are handled for you. It follows the event-stream format: several
 `data:` lines in one event are joined with newlines, one leading space after

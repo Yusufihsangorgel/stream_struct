@@ -1,3 +1,13 @@
+## 0.3.8
+
+- Document that an in-band provider error event is not surfaced. A provider that
+  signals a mid-stream failure with a data frame (an OpenAI `{"error": ...}`
+  after a rate limit) has it skipped like any non-content event, so the stream
+  ends normally with the partial value and no error — a truncated answer can
+  look finished. Verified: a genuine stream error (dropped socket) still
+  propagates; only the in-band error event is skipped. The README now says to
+  check the provider's error frame yourself. Docs only.
+
 ## 0.3.7
 
 - Document the cost. `streamPartialJson` re-parses the whole buffer on each
