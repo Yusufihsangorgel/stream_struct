@@ -133,6 +133,18 @@ keeps a half-written value off your screen; structure that has arrived is
 reported as far as it goes, so a container the model has opened but not yet
 filled appears as an empty one.
 
+## Cost
+
+`streamPartialJson` re-parses the whole buffer on every delta, so the work is
+quadratic in the length of the response: a stream twice as long costs about four
+times as much, not twice. Measured on a growing JSON array, 1,000 elements took
+about a second and 4,000 took about fourteen. For the interactive case this is
+built for — a model streaming a UI-sized object at reading speed — that cost is
+invisible. It becomes real for a large machine-to-machine payload: if you are
+streaming a multi-megabyte document only to consume the final value, decode it
+once at the end with `dart:convert` instead, and use this package for the
+partials you actually render.
+
 ## Roadmap
 
 Typed streaming today needs a small hand-written builder. Generated builders,

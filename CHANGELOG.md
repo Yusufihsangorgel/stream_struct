@@ -1,3 +1,13 @@
+## 0.3.7
+
+- Document the cost. `streamPartialJson` re-parses the whole buffer on each
+  delta, so it is quadratic in the response length — a stream twice as long
+  costs about four times as much. Measured on a growing array: ~1s at 1,000
+  elements, ~14s at 4,000. Invisible for the interactive case this is for, real
+  for a large machine-to-machine payload — the README now says so and points at
+  decoding once with `dart:convert` when you only need the final value. Docs
+  only; an incremental parser is on the roadmap.
+
 ## 0.3.6
 
 - **`geminiDelta` no longer returns thinking as if it were the answer.** With
