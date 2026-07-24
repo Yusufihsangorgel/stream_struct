@@ -1,3 +1,27 @@
+## 1.0.0
+
+The API is stable. No behaviour changes since 0.3.9, which fixed the last two
+parser bugs; this freezes the surface after checking the parser the hardest way
+I could think of rather than waiting for the fixes to age.
+
+Finding two bugs at the moment of freezing is a reason to look harder, so:
+every prefix of ten real documents — objects, nested arrays, escapes, unicode,
+exponents, empty containers, strings containing braces — was parsed and checked,
+384 prefixes in all. None threw, none lost structure that had already appeared,
+and every complete document decoded exactly. That property is now a test. It
+sits on top of the 35 hostile inputs (truncated escapes, dangling keys, garbage,
+runaway nesting) that already parse without crashing, and the character-by-
+character streaming check that catches an object blinking out mid-stream.
+
+Two limits are documented rather than fixed, because both are inherent:
+`streamPartialJson` re-parses the buffer each delta, so cost is quadratic in the
+response length (fine for a model streaming a UI-sized object, wrong for a
+multi-megabyte payload you only want the end of), and an in-band provider error
+frame is skipped like any non-content event, so a truncated answer can look
+finished. Both are called out in the README with what to do instead.
+
+Every public type is `final`; `meta` is the only dependency.
+
 ## 0.3.9
 
 - **Fix objects that vanished mid-stream while a value or key was resolving.**

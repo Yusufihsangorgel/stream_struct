@@ -1,7 +1,51 @@
+import 'dart:convert';
 import 'package:stream_struct/stream_struct.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('every prefix of a valid document parses consistently', () {
+    // The strongest property a partial parser can have: for every prefix of a
+    // real document, parsing must not throw, must not lose structure it has
+    // already reported, and the complete document must decode exactly.
+    const documents = [
+      '{"name":"Ada","score":12.5,"ok":true}',
+      '{"a":1,"b":[1,2.5,"x",null,false],"c":{"d":{"e":"deep"}}}',
+      '[{"id":1,"tags":["x","y"]},{"id":2,"tags":[]},{"id":3}]',
+      '{"neg":-5,"exp":1.2e10,"frac":0.001,"zero":0}',
+      r'{"esc":"a \"quoted\" and \\ backslash","uni":"café🎉"}',
+      '{"empty":{},"emptyArr":[],"nullv":null}',
+      '{"nested":[[1,2],[3,[4,[5]]]]}',
+      '[1,2,3]',
+      '{"k":"v with {braces} and [brackets] inside"}',
+    ];
+
+    for (final document in documents) {
+      var seenContainer = false;
+      for (var i = 1; i <= document.length; i++) {
+        final prefix = document.substring(0, i);
+        final frame = parsePartialJson(prefix);
+
+        if ((frame is Map && frame.isNotEmpty) ||
+            (frame is List && frame.isNotEmpty)) {
+          seenContainer = true;
+        } else if (seenContainer) {
+          expect(
+            frame,
+            isNotNull,
+            reason: 'structure vanished at prefix ${jsonEncode(prefix)} '
+                'of $document',
+          );
+        }
+      }
+
+      expect(
+        jsonEncode(parsePartialJson(document)),
+        jsonEncode(jsonDecode(document)),
+        reason: 'the complete document must decode exactly',
+      );
+    }
+  });
+
   group('parsePartialJson', () {
     test('returns null for empty or whitespace', () {
       expect(parsePartialJson(''), isNull);
