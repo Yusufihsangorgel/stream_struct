@@ -34,7 +34,11 @@ parsePartialJson('{"a": 1, "colo');              // {a: 1}   (partial key droppe
 It returns `null` while nothing is decodable yet: an empty buffer, or a value
 that is still an unresolved scalar (`tr` on its way to `true`, `12.` on its way
 to a number). Treat `null` as "no update this frame" and keep the previous
-value; the next token resolves it.
+value; the next token resolves it. A fully decoded top-level `null` also comes
+back as `null`, so `parsePartialJson` alone cannot tell "the value is `null`"
+from "nothing yet" — if you need to, use `parsePartialJsonResult`, whose
+`hasValue` distinguishes them (this is why the streaming helpers can emit a
+resolved `null` exactly once).
 
 Structure that has already arrived is returned even when it is still empty, so
 `parsePartialJson('{"titl')` is `{}` rather than `null`: the buffer has told you

@@ -121,6 +121,26 @@ void main() {
         'yo',
       );
     });
+
+    test('geminiDelta skips a thought part and does not assume parts[0]', () {
+      // With thinking on, the reasoning arrives as a thought part before the
+      // answer; returning it would splice reasoning into the JSON buffer.
+      expect(
+        geminiDelta({
+          'candidates': [
+            {
+              'content': {
+                'parts': [
+                  {'text': 'let me think', 'thought': true},
+                  {'text': '{"answer":1}'},
+                ]
+              }
+            },
+          ],
+        }),
+        '{"answer":1}',
+      );
+    });
   });
 
   test('streamPartialJsonFrom pipes provider chunks through an extractor',

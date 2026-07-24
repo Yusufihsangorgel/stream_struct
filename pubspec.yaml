@@ -3,7 +3,7 @@ description: >-
   Stream an LLM's structured output as it arrives: tolerant partial JSON that
   fills the typed object token by token. Decodes SSE, with OpenAI, Anthropic
   and Gemini extractors.
-version: 0.3.5
+version: 0.3.6
 repository: https://github.com/Yusufihsangorgel/stream_struct
 issue_tracker: https://github.com/Yusufihsangorgel/stream_struct/issues
 topics:

@@ -1,3 +1,17 @@
+## 0.3.6
+
+- **`geminiDelta` no longer returns thinking as if it were the answer.** With
+  Gemini thinking enabled, a chunk carries the model's reasoning as a part
+  flagged `thought: true`, ahead of the answer part. The adapter read
+  `parts[0].text` unconditionally, so it streamed the reasoning into the JSON
+  buffer. It now returns the first part that is not a thought and has text, so a
+  `[{thought}, {answer}]` chunk yields the answer, and it no longer assumes the
+  answer is always `parts[0]`.
+- Clarify the `parsePartialJson` null contract in the README: a fully decoded
+  top-level `null` also returns `null`, so `parsePartialJson` alone cannot tell
+  it from "nothing decodable yet" — `parsePartialJsonResult.hasValue` is what
+  distinguishes them.
+
 ## 0.3.5
 
 - **Fix `anthropicDelta` for tool-based structured output.** It returned both a

@@ -67,7 +67,14 @@ String? anthropicTextDelta(Map<String, dynamic> chunk) {
   return null;
 }
 
-/// Gemini generateContent stream: `candidates[0].content.parts[0].text`.
+/// Gemini `generateContent` stream: the answer text from
+/// `candidates[0].content.parts`.
+///
+/// With thinking enabled a chunk can carry more than one part, and the model's
+/// reasoning arrives as a part flagged `thought: true` — which is not the
+/// answer and must not be spliced into the JSON. This returns the first part
+/// that is *not* a thought and has text, so a `[{thought}, {answer}]` chunk
+/// yields the answer, and it does not assume the answer is always `parts[0]`.
 String? geminiDelta(Map<String, dynamic> chunk) {
   final candidates = chunk['candidates'];
   if (candidates is List && candidates.isNotEmpty) {
@@ -76,9 +83,10 @@ String? geminiDelta(Map<String, dynamic> chunk) {
       final content = first['content'];
       if (content is Map) {
         final parts = content['parts'];
-        if (parts is List && parts.isNotEmpty) {
-          final part = parts.first;
-          if (part is Map) {
+        if (parts is List) {
+          for (final part in parts) {
+            if (part is! Map) continue;
+            if (part['thought'] == true) continue;
             final text = part['text'];
             if (text is String) return text;
           }
