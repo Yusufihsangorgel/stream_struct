@@ -28,16 +28,41 @@ String? openAiDelta(Map<String, dynamic> chunk) {
   return null;
 }
 
-/// Anthropic messages stream: the `content_block_delta` event carries either
-/// `delta.text` (plain output) or `delta.partial_json` (tool input / structured
-/// output). Both are returned as they arrive.
+/// Anthropic Messages stream for **tool-based structured output**: the JSON of
+/// a forced tool call, which arrives as `delta.partial_json` on the tool block's
+/// `content_block_delta` events.
+///
+/// This is the way to get structured output from Anthropic, and it is why this
+/// adapter follows only the tool block. A model usually emits a text block
+/// first ("Let me look that up.") whose fragments arrive as `delta.text`; those
+/// are prose, not part of the JSON, so this returns `null` for them. Returning
+/// both would splice the prose onto the front of the JSON buffer and the whole
+/// thing would stop parsing — for a `Let me look that up.{"name":"Ada"}` buffer,
+/// zero frames. If instead you asked the model for raw JSON with no tool, the
+/// JSON is in the text block; use [anthropicTextDelta] for that.
 String? anthropicDelta(Map<String, dynamic> chunk) {
+  final delta = chunk['delta'];
+  if (delta is Map) {
+    final partial = delta['partial_json'];
+    if (partial is String) return partial;
+  }
+  return null;
+}
+
+/// Anthropic Messages stream for **plain-text output**: the model's text block,
+/// which arrives as `delta.text` on `content_block_delta` events.
+///
+/// Use this when you asked the model for JSON as ordinary text, with no tool
+/// call, so the JSON is what it is typing. For the recommended tool-based path,
+/// where the JSON is a forced tool call's arguments, use [anthropicDelta]. The
+/// two never both apply to one answer, which is why they are separate: a single
+/// extractor that took both would concatenate a leading prose block onto the
+/// tool JSON and break parsing.
+String? anthropicTextDelta(Map<String, dynamic> chunk) {
   final delta = chunk['delta'];
   if (delta is Map) {
     final text = delta['text'];
     if (text is String) return text;
-    final partial = delta['partial_json'];
-    if (partial is String) return partial;
   }
   return null;
 }
@@ -98,7 +123,10 @@ Stream<Object?> streamPartialJsonFrom(
   DeltaExtractor extractor,
 ) {
   return streamPartialJson(
-    chunks.map(extractor).where((d) => d != null && d.isNotEmpty).cast<String>(),
+    chunks
+        .map(extractor)
+        .where((d) => d != null && d.isNotEmpty)
+        .cast<String>(),
   );
 }
 

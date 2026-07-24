@@ -38,7 +38,9 @@ void main() {
       expect(
         openAiDelta({
           'choices': [
-            {'delta': {'content': 'he'}},
+            {
+              'delta': {'content': 'he'}
+            },
           ],
         }),
         'he',
@@ -46,16 +48,74 @@ void main() {
       expect(openAiDelta({'choices': []}), isNull);
     });
 
-    test('anthropicDelta reads text and partial_json', () {
-      expect(anthropicDelta({'delta': {'text': 'hi'}}), 'hi');
-      expect(anthropicDelta({'delta': {'partial_json': '{"a"'}}), '{"a"');
+    test('anthropicDelta reads the tool JSON and ignores prose text', () {
+      expect(
+          anthropicDelta({
+            'delta': {'partial_json': '{"a"'}
+          }),
+          '{"a"');
+      // A leading text block is prose, not JSON; splicing it in front of the
+      // tool JSON would break parsing, so it must be dropped.
+      expect(
+          anthropicDelta({
+            'delta': {'text': 'Let me look that up.'}
+          }),
+          isNull);
+    });
+
+    test('anthropicTextDelta reads prose text and ignores tool JSON', () {
+      expect(
+          anthropicTextDelta({
+            'delta': {'text': 'hi'}
+          }),
+          'hi');
+      expect(
+          anthropicTextDelta({
+            'delta': {'partial_json': '{"a"'}
+          }),
+          isNull);
+    });
+
+    test(
+        'a tool stream with a leading text block parses through anthropicDelta',
+        () async {
+      // Regression: text_delta prose used to be concatenated onto the tool
+      // JSON, so a real Anthropic answer yielded zero frames.
+      final events = <Map<String, dynamic>>[
+        {
+          'delta': {'type': 'text_delta', 'text': 'Let me '}
+        },
+        {
+          'delta': {'type': 'text_delta', 'text': 'help.'}
+        },
+        {
+          'delta': {'type': 'input_json_delta', 'partial_json': '{"name"'}
+        },
+        {
+          'delta': {'type': 'input_json_delta', 'partial_json': ':"Ada"}'}
+        },
+      ];
+      Object? last;
+      await for (final v in streamPartialJsonFrom(
+        Stream.fromIterable(events),
+        anthropicDelta,
+      )) {
+        last = v;
+      }
+      expect(last, {'name': 'Ada'});
     });
 
     test('geminiDelta reads candidates[0].content.parts[0].text', () {
       expect(
         geminiDelta({
           'candidates': [
-            {'content': {'parts': [{'text': 'yo'}]}},
+            {
+              'content': {
+                'parts': [
+                  {'text': 'yo'}
+                ]
+              }
+            },
           ],
         }),
         'yo',
@@ -66,8 +126,20 @@ void main() {
   test('streamPartialJsonFrom pipes provider chunks through an extractor',
       () async {
     final chunks = Stream<Map<String, dynamic>>.fromIterable([
-      {'choices': [{'delta': {'content': '{"ok":'}}]},
-      {'choices': [{'delta': {'content': 'true}'}}]},
+      {
+        'choices': [
+          {
+            'delta': {'content': '{"ok":'}
+          }
+        ]
+      },
+      {
+        'choices': [
+          {
+            'delta': {'content': 'true}'}
+          }
+        ]
+      },
     ]);
     final frames = await streamPartialJsonFrom(chunks, openAiDelta).toList();
     expect(frames.last, {'ok': true});

@@ -69,9 +69,15 @@ final response = await request.close();
 streamPartialJsonFrom(sseJson(response), openAiDelta)  // choices[0].delta.content
     .listen((partial) => print(partial));
 
-streamPartialJsonFrom(sseJson(response), anthropicDelta); // delta.text / delta.partial_json
+streamPartialJsonFrom(sseJson(response), anthropicDelta); // tool call's delta.partial_json
 streamPartialJsonFrom(sseJson(response), geminiDelta);    // candidates[0].content.parts[0].text
 ```
+
+Anthropic has two shapes and they must not be mixed. `anthropicDelta` follows a
+forced tool call's `partial_json`, which is the way to get structured output;
+it ignores the prose text block a model usually emits first, because splicing
+that onto the JSON would break parsing. If instead you asked for raw JSON as
+plain text with no tool, use `anthropicTextDelta`.
 
 `sseJson` takes the raw byte stream, so chunk boundaries falling inside a line
 or an event are handled for you. It follows the event-stream format: several

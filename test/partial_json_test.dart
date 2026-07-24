@@ -39,15 +39,19 @@ void main() {
     });
 
     test('handles nested containers', () {
-      expect(parsePartialJson('{"user":{"name":"Al'),
-          {'user': {'name': 'Al'}});
-      expect(parsePartialJson('{"tags":["a","b'),
-          {'tags': ['a', 'b']});
+      expect(parsePartialJson('{"user":{"name":"Al'), {
+        'user': {'name': 'Al'}
+      });
+      expect(parsePartialJson('{"tags":["a","b'), {
+        'tags': ['a', 'b']
+      });
     });
 
     test('reports an element that has only just opened as an empty one', () {
-      expect(parsePartialJson('[{"a": 1}, {"b'),
-          [{'a': 1}, <String, Object?>{}]);
+      expect(parsePartialJson('[{"a": 1}, {"b'), [
+        {'a': 1},
+        <String, Object?>{}
+      ]);
     });
 
     test('keeps a valid partial number', () {
@@ -60,13 +64,11 @@ void main() {
     });
 
     test('does not confuse braces inside a string', () {
-      expect(parsePartialJson('{"expr":"a { b } c'),
-          {'expr': 'a { b } c'});
+      expect(parsePartialJson('{"expr":"a { b } c'), {'expr': 'a { b } c'});
     });
 
     test('handles an escaped quote inside a value', () {
-      expect(parsePartialJson(r'{"q":"she said \"hi'),
-          {'q': 'she said "hi'});
+      expect(parsePartialJson(r'{"q":"she said \"hi'), {'q': 'she said "hi'});
     });
 
     test('progressive stream converges to the final object', () {

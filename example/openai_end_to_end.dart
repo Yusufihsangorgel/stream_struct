@@ -34,8 +34,7 @@ class Recipe {
   @override
   String toString() {
     final prep = prepMinutes == null ? '?' : '$prepMinutes min';
-    return '${title.padRight(22)} $prep'.padRight(34) +
-        ingredients.join(', ');
+    return '${title.padRight(22)} $prep'.padRight(34) + ingredients.join(', ');
   }
 }
 

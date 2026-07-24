@@ -1,3 +1,21 @@
+## 0.3.5
+
+- **Fix `anthropicDelta` for tool-based structured output.** It returned both a
+  content block's `delta.text` and a tool block's `delta.partial_json`, and a
+  real Anthropic answer emits a prose text block ("Let me look that up.") before
+  the tool call — so the prose was spliced onto the front of the JSON buffer and
+  the whole thing stopped parsing. Reproduced end to end: a tool stream with a
+  leading text block yielded **zero frames**. `anthropicDelta` now follows only
+  the tool block's `partial_json`, which is the way to get structured output
+  from Anthropic; the same stream now resolves to `{"name": "Ada"}`.
+- Add `anthropicTextDelta` for the other Anthropic shape — a model asked for raw
+  JSON as plain text, with no tool — which reads `delta.text`. The two modes
+  never both apply to one answer, so they are separate functions rather than one
+  that guesses and occasionally concatenates.
+
+  Breaking only if you were using `anthropicDelta` against a no-tool prose-JSON
+  stream; switch that call to `anthropicTextDelta`.
+
 ## 0.3.4
 
 - **Fix the README's own streaming example.** It cast every frame with

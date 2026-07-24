@@ -15,17 +15,13 @@ library;
 
 export 'src/partial_json.dart' show parsePartialJson;
 export 'src/sse.dart'
-    show
-        sseData,
-        sseDataFromLines,
-        sseDoneSentinel,
-        sseJson,
-        sseJsonFromData;
+    show sseData, sseDataFromLines, sseDoneSentinel, sseJson, sseJsonFromData;
 export 'src/streaming.dart'
     show
         DeltaExtractor,
         openAiDelta,
         anthropicDelta,
+        anthropicTextDelta,
         geminiDelta,
         streamPartialJson,
         streamPartialJsonFrom,
