@@ -164,4 +164,18 @@ void main() {
       });
     });
   });
+  test('a completed string value survives the frame that closes it', () {
+    // The closing quote of a value and the closing quote of a key look the
+    // same at the tail; only the colon before it tells them apart. Getting
+    // that wrong drops a finished value at the exact moment it lands.
+    expect(parsePartialJson('{"name":"Ada"'), {'name': 'Ada'});
+    expect(parsePartialJson('{"a":1,"b":"x"'), {'a': 1, 'b': 'x'});
+    expect(parsePartialJson('{"a":["x"'), {
+      'a': ['x'],
+    });
+
+    // The other side of the same branch: a key with no colon yet is not a
+    // value, so its entry goes.
+    expect(parsePartialJson('{"name":"Ada","score"'), {'name': 'Ada'});
+  });
 }
