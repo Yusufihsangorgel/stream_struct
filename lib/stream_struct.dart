@@ -21,6 +21,7 @@ export 'src/streaming.dart'
         DeltaExtractor,
         openAiDelta,
         anthropicDelta,
+        anthropicToolDelta,
         anthropicTextDelta,
         geminiDelta,
         streamPartialJson,

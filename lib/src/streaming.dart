@@ -40,6 +40,12 @@ String? openAiDelta(Map<String, dynamic> chunk) {
 /// thing would stop parsing — for a `Let me look that up.{"name":"Ada"}` buffer,
 /// zero frames. If instead you asked the model for raw JSON with no tool, the
 /// JSON is in the text block; use [anthropicTextDelta] for that.
+/// Every `partial_json` fragment is returned whichever content block it came
+/// from, so this is only correct while the answer holds a single tool call.
+/// Ask for parallel tool use and the model opens one block per call: their
+/// fragments interleave into one buffer, the concatenation stops parsing, and
+/// every call after the first is silently dropped rather than reported. Use
+/// [anthropicToolDelta] there — it follows one block and ignores the rest.
 String? anthropicDelta(Map<String, dynamic> chunk) {
   final delta = chunk['delta'];
   if (delta is Map) {
@@ -47,6 +53,54 @@ String? anthropicDelta(Map<String, dynamic> chunk) {
     if (partial is String) return partial;
   }
   return null;
+}
+
+/// A [DeltaExtractor] for one tool call out of an Anthropic stream that may
+/// carry several.
+///
+/// [anthropicDelta] returns every `partial_json` fragment it is handed. With
+/// parallel tool use the model opens a content block per call, each with its
+/// own `index`, and those fragments belong to different JSON values: appended
+/// to one buffer they stop parsing, so the second call and everything after
+/// it vanish without an error.
+///
+/// The extractor this returns locks onto a single block — by default the
+/// first tool call that starts, or pass [index] to follow a known one — and
+/// ignores fragments from the others. Because it remembers which block it
+/// chose, create one per stream rather than sharing it:
+///
+/// ```dart
+/// streamPartialJsonFrom(anthropicChunks, anthropicToolDelta())
+///     .listen((partial) => setState(() => _draft = partial));
+/// ```
+///
+/// To read a second call, run the stream again with another extractor and its
+/// [index]. One [streamPartialJson] carries one JSON value; two calls are two
+/// values and cannot share a buffer.
+DeltaExtractor anthropicToolDelta({int? index}) {
+  var followed = index;
+  return (Map<String, dynamic> chunk) {
+    final chunkIndex = chunk['index'];
+    if (followed == null) {
+      // Lock onto the first tool block that opens. A text block ("Let me look
+      // that up.") usually comes first and never carries partial_json, so it
+      // must not claim the slot.
+      if (chunk['type'] == 'content_block_start' && chunkIndex is int) {
+        final block = chunk['content_block'];
+        if (block is Map && block['type'] == 'tool_use') followed = chunkIndex;
+      }
+      // Without a content_block_start to go on — a caller feeding only delta
+      // events — fall back to the first block that actually carries JSON.
+      if (followed == null && chunkIndex is int) {
+        final delta = chunk['delta'];
+        if (delta is Map && delta['partial_json'] is String) {
+          followed = chunkIndex;
+        }
+      }
+    }
+    if (chunkIndex is int && chunkIndex != followed) return null;
+    return anthropicDelta(chunk);
+  };
 }
 
 /// Anthropic Messages stream for **plain-text output**: the model's text block,

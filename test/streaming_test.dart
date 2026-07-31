@@ -76,6 +76,69 @@ void main() {
           isNull);
     });
 
+    test('anthropicToolDelta follows one tool call out of several', () async {
+      // Parallel tool use opens a content block per call. anthropicDelta
+      // returns every fragment whichever block it came from, so the two JSON
+      // values land in one buffer, the concatenation stops parsing, and the
+      // second call disappears with no error.
+      final events = <Map<String, dynamic>>[
+        {
+          'type': 'content_block_start',
+          'index': 0,
+          'content_block': {'type': 'text'},
+        },
+        {
+          'index': 0,
+          'delta': {'type': 'text_delta', 'text': 'One moment.'},
+        },
+        {
+          'type': 'content_block_start',
+          'index': 1,
+          'content_block': {'type': 'tool_use', 'name': 'get_weather'},
+        },
+        {
+          'index': 1,
+          'delta': {
+            'type': 'input_json_delta',
+            'partial_json': '{"city":"Oslo"}'
+          },
+        },
+        {
+          'type': 'content_block_start',
+          'index': 2,
+          'content_block': {'type': 'tool_use', 'name': 'get_time'},
+        },
+        {
+          'index': 2,
+          'delta': {'type': 'input_json_delta', 'partial_json': '{"tz":"CET"}'},
+        },
+      ];
+      Future<List<Object?>> collect(DeltaExtractor extractor) async {
+        final seen = <Object?>[];
+        await for (final value in streamPartialJsonFrom(
+          Stream.fromIterable(events),
+          extractor,
+        )) {
+          seen.add(value);
+        }
+        return seen;
+      }
+
+      // The leading text block must not claim the slot.
+      expect(await collect(anthropicToolDelta()), [
+        {'city': 'Oslo'},
+      ]);
+      // The second call is reachable by running the stream again for it.
+      expect(await collect(anthropicToolDelta(index: 2)), [
+        {'tz': 'CET'},
+      ]);
+      // Without the index filter the second call is lost, which is the bug
+      // this extractor exists to avoid.
+      expect(await collect(anthropicDelta), [
+        {'city': 'Oslo'},
+      ]);
+    });
+
     test(
         'a tool stream with a leading text block parses through anthropicDelta',
         () async {

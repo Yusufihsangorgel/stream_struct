@@ -1,3 +1,24 @@
+## 1.1.0
+
+- **Add `anthropicToolDelta`, for a stream carrying more than one tool call.**
+  `anthropicDelta` returns every `partial_json` fragment whichever content
+  block it came from. That is right while the answer holds a single tool call,
+  but parallel tool use opens a block per call: the fragments interleave into
+  one buffer, the concatenation stops parsing, and every call after the first
+  disappears — no exception, no empty frame, nothing to notice. An agent
+  written against Anthropic's parallel tool use simply never saw its second
+  tool's arguments.
+
+  `anthropicToolDelta()` locks onto one content block and ignores the rest. By
+  default it takes the first tool call that opens, stepping over the leading
+  text block a model usually emits; pass `index` to follow another. It keeps
+  the block it chose, so create one per stream. Reading a second call means
+  running the stream again with its index — one `streamPartialJson` carries
+  one JSON value, and two calls are two values.
+
+  `anthropicDelta` is unchanged and still right for the single-call case; its
+  documentation now states the limit and points here.
+
 ## 1.0.0
 
 The API is stable. No behaviour changes since 0.3.9, which fixed the last two
