@@ -1,3 +1,8 @@
+## 1.1.1
+
+- The README shows the object filling in as tokens arrive, drawn by
+  `tool/growth_figure.dart` from a real token stream. Docs and tooling only.
+
 ## 1.1.0
 
 - **Add `anthropicToolDelta`, for a stream carrying more than one tool call.**
