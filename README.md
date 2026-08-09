@@ -13,6 +13,16 @@ the very last token lands. So the usual choices are to wait for the whole
 response before showing anything, or to hand-roll a fragile parser. `stream_struct`
 is the parser, done once and tested, plus the provider glue.
 
+![A step chart. One 150-character model answer is replayed a character at a time and both parsers are asked for a value at every prefix. The green parsePartialJson line climbs in steps from zero to all eight fields as the characters arrive, with half of them on screen by character 68. The red dart:convert jsonDecode line stays flat on zero for the whole stream and jumps to eight only at the final character. Below the chart, three of those prefixes are listed, each showing the truncated buffer next to the value returned for it.](https://raw.githubusercontent.com/Yusufihsangorgel/stream_struct/main/doc/growth.png)
+
+That is one answer replayed a character at a time, with both parsers asked for a
+value at every prefix. `jsonDecode` accepts 1 of the 150 non-empty prefixes and
+`parsePartialJson` accepts all 150; the height of the green line is what a UI
+could have on screen at that point. The notch near character 68 is `rating`. Its
+value has reached only `4.` there, which is not a number yet, and the field
+drops out for a single character. `dart run tool/growth_figure.dart` measures
+all of it and writes the drawing.
+
 ```
 dart pub add stream_struct
 ```

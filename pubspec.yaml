@@ -15,7 +15,12 @@ topics:
 
 screenshots:
   - description: >-
-      The example running: a recipe object printed again on every fragment, its 
+      A step chart of one model answer replayed a character at a time:
+      parsePartialJson climbs to all eight fields as they arrive, while
+      jsonDecode stays at zero until the end.
+    path: doc/growth.png
+  - description: >-
+      The example running: a recipe object printed again on every fragment, its
       title and ingredient count filling in as the stream arrives.
     path: doc/demo.gif
 
