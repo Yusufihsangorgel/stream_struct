@@ -7,6 +7,40 @@ it fills in.
 
 ![stream_struct parses a JSON object and fills it in token by token as it streams](https://raw.githubusercontent.com/Yusufihsangorgel/stream_struct/main/doc/demo.gif)
 
+## Why this instead of what you already have
+
+**Instead of waiting for the whole response.** `jsonDecode` accepts a truncated
+buffer only by accident. Replay one 150-character model answer a character at a
+time and it accepts 1 of the 150 non-empty prefixes, while `parsePartialJson`
+accepts all 150. `dart run tool/growth_figure.dart` measures that and refuses to
+write the drawing when the numbers stop holding.
+
+**Instead of `llm_json_stream`.** It is the larger reactive parser, with path
+subscriptions and per-property streams, and it starts one layer above the wire.
+Its provider snippets all take a chunk some SDK has already decoded
+(`README.md:449` and `:466`); grep it for `event-stream` or `HttpClientResponse`
+and there are no hits at all. The only nearby string in the whole package is a
+`utf8.decoder` call in an example CLI that reads from stdin, not from a
+provider's HTTP response, so it doesn't change the picture: a plain
+`package:http` call still means writing the SSE framing first. `sseData`
+(`lib/src/sse.dart:31`) is that step. Its Anthropic snippet reads
+`event.delta?.text` (`README.md:466`), which is the prose block. A forced tool
+call streams through `partial_json`, a string that appears nowhere in that
+package; `anthropicDelta` (`lib/src/streaming.dart:49`) reads it, and
+`anthropicTextDelta` (`:115`) reads the other one.
+
+**Reach for it when**
+
+- You render model output into a form or a card and want fields to appear as
+  they arrive.
+- You call a provider over HTTP yourself and are holding a raw
+  `text/event-stream` body.
+- You use an Anthropic tool call for structured output and need the arguments,
+  not the sentence the model writes before them.
+
+Skip it if the whole response lands in well under a second, because then partial
+parsing buys you nothing that a spinner does not.
+
 A model asked for JSON emits it one token at a time. Mid-stream you are holding
 something like `{"title": "The quick bro` , which `jsonDecode` throws on until
 the very last token lands. So the usual choices are to wait for the whole
