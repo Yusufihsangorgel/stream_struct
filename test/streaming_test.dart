@@ -1,6 +1,60 @@
 import 'package:stream_struct/stream_struct.dart';
 import 'package:test/test.dart';
 
+/// One chunk of an OpenAI chat completions stream in which the model is
+/// answering with a tool call, so the JSON arrives as
+/// `choices[0].delta.tool_calls[n].function.arguments`.
+///
+/// Pass `index: null` for the servers that omit the field entirely.
+Map<String, dynamic> _toolChunk(String arguments, {int? index = 0}) => {
+      'choices': [
+        {
+          'index': 0,
+          'delta': {
+            'tool_calls': [
+              {
+                if (index != null) 'index': index,
+                'function': {'arguments': arguments},
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+/// A whole forced tool call, in the shape OpenAI streams it: an opening chunk
+/// carrying the id, the name and an empty `arguments`, then the argument
+/// fragments, then a chunk that only reports the finish reason.
+final _forcedToolCall = <Map<String, dynamic>>[
+  {
+    'choices': [
+      {
+        'index': 0,
+        'delta': {
+          'role': 'assistant',
+          'content': null,
+          'tool_calls': [
+            {
+              'index': 0,
+              'id': 'call_abc123',
+              'type': 'function',
+              'function': {'name': 'extract_recipe', 'arguments': ''},
+            },
+          ],
+        },
+      },
+    ],
+  },
+  _toolChunk('{"title": "Foc'),
+  _toolChunk('accia", "prep_min": 2'),
+  _toolChunk('0}'),
+  {
+    'choices': [
+      {'index': 0, 'delta': <String, dynamic>{}, 'finish_reason': 'tool_calls'},
+    ],
+  },
+];
+
 void main() {
   group('streamPartialJson', () {
     test('emits the object growing and ends on the final value', () async {
@@ -46,6 +100,213 @@ void main() {
         'he',
       );
       expect(openAiDelta({'choices': []}), isNull);
+    });
+
+    test('openAiDelta returns null for a tool-call chunk', () {
+      // The split between the two OpenAI adapters is deliberate, and this is
+      // what makes it necessary: a forced tool call leaves content null for
+      // the whole answer, so the content adapter has nothing to return.
+      expect(
+        openAiDelta({
+          'choices': [
+            {
+              'delta': {
+                'content': null,
+                'tool_calls': [
+                  {
+                    'index': 0,
+                    'function': {'arguments': '{"a"'},
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+        isNull,
+      );
+    });
+
+    test("openAiToolDelta reassembles a forced tool call's arguments", () {
+      final extractor = openAiToolDelta();
+      final fragments =
+          _forcedToolCall.map(extractor).whereType<String>().toList();
+      expect(fragments.join(), '{"title": "Focaccia", "prep_min": 20}');
+      // The opening chunk carries an empty arguments string, and the closing
+      // one carries no tool_calls at all; neither is an error.
+      expect(fragments.first, isEmpty);
+      expect(extractor(_forcedToolCall.last), isNull);
+    });
+
+    test('openAiToolDelta ignores a content stream', () {
+      expect(
+        openAiToolDelta()({
+          'choices': [
+            {
+              'delta': {'content': '{"a"'}
+            },
+          ],
+        }),
+        isNull,
+      );
+    });
+
+    test('openAiToolDelta does not splice leading prose onto the tool JSON',
+        () async {
+      // A model can narrate before it calls the tool, and both arrive on the
+      // one stream. Fold content into this adapter and the buffer reads
+      // `Let me look that up.{"name":"Ada"}`, which never parses: zero frames.
+      final chunks = <Map<String, dynamic>>[
+        {
+          'choices': [
+            {
+              'delta': {'content': 'Let me look '}
+            },
+          ],
+        },
+        {
+          'choices': [
+            {
+              'delta': {'content': 'that up.'}
+            },
+          ],
+        },
+        _toolChunk('{"name":'),
+        _toolChunk('"Ada"}'),
+      ];
+      final frames = await streamPartialJsonFrom(
+        Stream.fromIterable(chunks),
+        openAiToolDelta(),
+      ).toList();
+      expect(frames.last, {'name': 'Ada'});
+    });
+
+    test('openAiToolDelta follows one tool call out of several', () async {
+      // Parallel calls interleave in the same tool_calls list, each entry
+      // tagged with its own index, and their fragments are different JSON
+      // values: appended to one buffer they stop parsing and the second call
+      // disappears without an error.
+      final chunks = <Map<String, dynamic>>[
+        _toolChunk('{"city":'),
+        _toolChunk('{"tz":', index: 1),
+        _toolChunk('"Oslo"}'),
+        _toolChunk('"CET"}', index: 1),
+      ];
+      Future<List<Object?>> collect(DeltaExtractor extractor) =>
+          streamPartialJsonFrom(Stream.fromIterable(chunks), extractor)
+              .toList();
+
+      // No index given: lock onto the first one seen and ignore the other.
+      expect((await collect(openAiToolDelta())).last, {'city': 'Oslo'});
+      // The second call is reachable by running the stream again for it.
+      expect((await collect(openAiToolDelta(index: 1))).last, {'tz': 'CET'});
+    });
+
+    test('openAiToolDelta picks its call out of a chunk carrying several', () {
+      // tool_calls is a list and one chunk can carry more than one entry.
+      // Reading only the first would drop every later call's fragments: the
+      // same silent loss as before, one level down.
+      Map<String, dynamic> pair(String a, String b) => {
+            'choices': [
+              {
+                'delta': {
+                  'tool_calls': [
+                    {
+                      'index': 0,
+                      'function': {'arguments': a},
+                    },
+                    {
+                      'index': 1,
+                      'function': {'arguments': b},
+                    },
+                  ],
+                },
+              },
+            ],
+          };
+
+      expect(openAiToolDelta()(pair('{"city":', '{"tz":')), '{"city":');
+      expect(openAiToolDelta(index: 1)(pair('{"city":', '{"tz":')), '{"tz":');
+    });
+
+    test('openAiToolDelta reads a server that omits the call index', () {
+      // Ollama, LM Studio and vLLM answer OpenAI's shape without the index
+      // field. A server that omits it is announcing a single call.
+      final extractor = openAiToolDelta();
+      expect(extractor(_toolChunk('{"a":', index: null)), '{"a":');
+      expect(extractor(_toolChunk('1}', index: null)), '1}');
+    });
+
+    test('openAiToolDelta returns null for malformed chunk shapes', () {
+      final shapes = <Map<String, dynamic>>[
+        <String, dynamic>{},
+        {'choices': <Object?>[]},
+        {
+          'choices': [null]
+        },
+        {
+          'choices': [
+            {'delta': null}
+          ]
+        },
+        {
+          'choices': [
+            {
+              'delta': {'tool_calls': 'nope'}
+            }
+          ]
+        },
+        {
+          'choices': [
+            {
+              'delta': {
+                'tool_calls': [null]
+              }
+            }
+          ]
+        },
+        {
+          'choices': [
+            {
+              'delta': {
+                'tool_calls': [
+                  {'function': 'nope'}
+                ]
+              }
+            }
+          ]
+        },
+        // A server that decoded arguments into an object rather than sending
+        // string fragments. Not something that can be accumulated, but it must
+        // not throw either.
+        {
+          'choices': [
+            {
+              'delta': {
+                'tool_calls': [
+                  {
+                    'function': {'arguments': 42}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+      ];
+      for (final shape in shapes) {
+        expect(openAiToolDelta()(shape), isNull, reason: '$shape');
+      }
+    });
+
+    test('a forced tool call goes end to end through streamPartialJsonFrom',
+        () async {
+      final frames = await streamPartialJsonFrom(
+        Stream.fromIterable(_forcedToolCall),
+        openAiToolDelta(),
+      ).toList();
+      // Read through openAiDelta this same stream yields nothing at all, with
+      // no exception: the failure this adapter exists to end.
+      expect(frames, isNotEmpty, reason: 'a silent zero-frame stream');
+      expect(frames.last, {'title': 'Focaccia', 'prep_min': 20});
     });
 
     test('anthropicDelta reads the tool JSON and ignores prose text', () {

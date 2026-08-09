@@ -1,3 +1,31 @@
+## 1.3.0
+
+- **Add `openAiToolDelta`, for a forced tool call on an OpenAI stream.**
+  `openAiDelta` reads `choices[0].delta.content`, which is right when you ask
+  for JSON with `response_format`. The other way to get a schema honoured is
+  `tools` + `tool_choice`, and then the JSON arrives as
+  `tool_calls[n].function.arguments` while `content` stays null for the whole
+  answer. Read that stream with `openAiDelta` and every chunk yields nothing:
+  the stream ends having emitted no frames, no exception, nothing to notice.
+  It looked the same as a model that had said nothing.
+
+  `openAiToolDelta()` reads the arguments fragments. It is a factory because
+  parallel calls interleave in one `tool_calls` list, each entry tagged with
+  its own `index`, and those fragments are different JSON values; it locks
+  onto the first call it sees, takes `index` to follow another, and remembers
+  that choice, so create one per stream. Servers that answer OpenAI's shape
+  without the `index` field are announcing a single call and are followed as
+  one.
+
+  Kept separate from `openAiDelta` rather than folded in, because one answer
+  can carry both: a model that narrates before calling the tool would put its
+  prose in front of the JSON buffer, and the buffer would stop parsing. This
+  is the same split, and for the same reason, as `anthropicDelta` and
+  `anthropicTextDelta`.
+
+  `openAiDelta` is unchanged; its documentation now states the limit and
+  points here. Nothing else in the API moves.
+
 ## 1.2.0
 
 - The README now answers, in its first screen, why to reach for this rather

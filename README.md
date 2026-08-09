@@ -121,11 +121,29 @@ streamPartialJsonFrom(sseJson(response), anthropicDelta); // tool call's delta.p
 streamPartialJsonFrom(sseJson(response), geminiDelta);    // candidates[0].content.parts[0].text
 ```
 
-Anthropic has two shapes and they must not be mixed. `anthropicDelta` follows a
-forced tool call's `partial_json`, which is the way to get structured output;
-it ignores the prose text block a model usually emits first, because splicing
-that onto the JSON would break parsing. If instead you asked for raw JSON as
-plain text with no tool, use `anthropicTextDelta`.
+Both OpenAI and Anthropic have two shapes, and picking the wrong one gives you
+a stream that emits nothing and raises no error.
+
+On OpenAI it depends on how you asked for the schema. With `response_format`
+the JSON is the model's `content`, which is what `openAiDelta` reads. Force a
+tool call instead, with `tools` and `tool_choice`, and the JSON arrives as
+`tool_calls[n].function.arguments` while `content` stays null the whole way:
+
+```dart
+streamPartialJsonFrom(sseJson(response), openAiToolDelta())
+    .listen((partial) => print(partial));
+```
+
+`openAiToolDelta` is a factory because parallel tool calls interleave in one
+`tool_calls` list, each entry carrying its own `index`, and their fragments are
+different JSON values. It follows the first call by default, takes `index:` to
+follow another, and keeps that choice — so create one per stream.
+
+Anthropic splits the same way. `anthropicDelta` follows a forced tool call's
+`partial_json`, and ignores the prose text block a model usually emits first,
+because splicing that onto the JSON would break parsing. If instead you asked
+for raw JSON as plain text with no tool, use `anthropicTextDelta`; for an
+answer holding several tool calls, `anthropicToolDelta`.
 
 `sseJson` decodes SSE frames; it does not interpret what is in them. A provider
 that signals a mid-stream failure with a data event (an OpenAI `{"error": ...}`

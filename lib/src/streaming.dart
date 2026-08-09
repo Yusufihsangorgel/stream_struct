@@ -13,6 +13,11 @@ typedef DeltaExtractor = String? Function(Map<String, dynamic> chunk);
 ///
 /// When you ask for JSON (response_format json_object / json_schema) the model's
 /// JSON arrives as `content` fragments, which is exactly what this returns.
+///
+/// Ask for the JSON with `tools` and `tool_choice` instead and `content` stays
+/// null for the whole answer: this returns nothing for every chunk and the
+/// stream ends having emitted no frames at all, with no exception to notice.
+/// Use [openAiToolDelta] for that shape.
 String? openAiDelta(Map<String, dynamic> chunk) {
   final choices = chunk['choices'];
   if (choices is List && choices.isNotEmpty) {
@@ -26,6 +31,70 @@ String? openAiDelta(Map<String, dynamic> chunk) {
     }
   }
   return null;
+}
+
+/// A [DeltaExtractor] for the JSON of a **forced tool call** on an OpenAI chat
+/// completions stream, which arrives as
+/// `choices[0].delta.tool_calls[n].function.arguments`.
+///
+/// Forcing a tool call is the other way to make the model answer in your
+/// schema, and [openAiDelta] cannot read it: that shape leaves `content` null
+/// throughout, so the stream ends having emitted nothing and no error is
+/// raised. The two are separate rather than one adapter because a single
+/// answer can carry both — a model may narrate before it calls the tool, and
+/// returning that prose too would put `Let me look that up.` in front of the
+/// JSON buffer, where it stops parsing.
+///
+/// Parallel tool calls interleave in that one `tool_calls` list, each entry
+/// tagged with its own `index`, and their fragments are different JSON values.
+/// The extractor this returns locks onto one — by default the first `index` it
+/// sees, or pass [index] to follow a known one — and ignores the rest. Because
+/// it remembers the call it chose, create one per stream rather than sharing
+/// it:
+///
+/// ```dart
+/// streamPartialJsonFrom(openAiChunks, openAiToolDelta())
+///     .listen((partial) => setState(() => _draft = partial));
+/// ```
+///
+/// To read a second call, run the stream again with its [index]. One
+/// [streamPartialJson] carries one JSON value; two calls are two values and
+/// cannot share a buffer.
+///
+/// Servers that answer OpenAI's shape without the `index` field — Ollama, LM
+/// Studio, vLLM — are announcing a single call, so their entries are followed
+/// whatever [index] says. One shape is not handled: a server that sends
+/// `arguments` already decoded into an object rather than as string fragments
+/// is sending a finished value, not something to accumulate, and this returns
+/// `null` for it.
+DeltaExtractor openAiToolDelta({int? index}) {
+  var followed = index;
+  return (Map<String, dynamic> chunk) {
+    final choices = chunk['choices'];
+    if (choices is! List || choices.isEmpty) return null;
+    final first = choices.first;
+    if (first is! Map) return null;
+    final delta = first['delta'];
+    if (delta is! Map) return null;
+    final calls = delta['tool_calls'];
+    if (calls is! List) return null;
+    for (final call in calls) {
+      if (call is! Map) continue;
+      final callIndex = call['index'];
+      if (callIndex is int) {
+        // Lock onto the first call announced, so a stream that opens with a
+        // call the caller did not name still resolves to one of them rather
+        // than to nothing.
+        followed ??= callIndex;
+        if (callIndex != followed) continue;
+      }
+      final function = call['function'];
+      if (function is! Map) continue;
+      final arguments = function['arguments'];
+      if (arguments is String) return arguments;
+    }
+    return null;
+  };
 }
 
 /// Anthropic Messages stream for **tool-based structured output**: the JSON of
