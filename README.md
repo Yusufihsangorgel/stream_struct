@@ -35,12 +35,12 @@ It returns `null` while nothing is decodable yet: an empty buffer, or a value
 that is still an unresolved scalar (`tr` on its way to `true`, `12.` on its way
 to a number). Treat `null` as "no update this frame" and keep the previous
 value; the next token resolves it. A fully decoded top-level `null` also comes
-back as `null`, so `parsePartialJson` alone cannot tell "the value is `null`"
-from "nothing yet" — if you need to, use `parsePartialJsonResult`, whose
+back as `null`, which means `parsePartialJson` alone cannot tell "the value is
+`null`" from "nothing yet". If you need to, use `parsePartialJsonResult`, whose
 `hasValue` distinguishes them (this is why the streaming helpers can emit a
 resolved `null` exactly once).
 
-Structure that has already arrived is returned even when it is still empty, so
+Structure that has already arrived is returned even when it is still empty.
 `parsePartialJson('{"titl')` is `{}` rather than `null`: the buffer has told you
 it is an object, only the first key is incomplete. The same goes for a growing
 array, where an element that has only just opened shows up as an empty one:
@@ -53,8 +53,8 @@ token, skipping frames that do not parse yet or that did not change.
 
 ```dart
 await for (final partial in streamPartialJson(modelDeltas)) {
-  // A model can answer with something that is not an object — `null`, a bare
-  // string, an array — and that arrives here as a frame too, so check before
+  // A model can answer with something that is not an object: `null`, a bare
+  // string, an array. Those arrive here as frames too, so check before
   // casting rather than assuming the happy shape.
   if (partial is! Map<String, dynamic>) continue;
   setState(() => _draft = partial);   // render the object filling in
@@ -65,7 +65,7 @@ await for (final partial in streamPartialJson(modelDeltas)) {
 
 `sseJson` decodes the Server-Sent Events body providers stream, and an adapter
 pulls the text fragment out of each event. OpenAI, Anthropic, and Gemini shapes
-are built in, so a response goes end to end with no line handling of your own:
+are built in, and a response goes end to end with no line handling of your own:
 
 ```dart
 final response = await request.close();
@@ -84,8 +84,8 @@ that onto the JSON would break parsing. If instead you asked for raw JSON as
 plain text with no tool, use `anthropicTextDelta`.
 
 `sseJson` decodes SSE frames; it does not interpret what is in them. A provider
-that signals a mid-stream failure with a data event — an OpenAI `{"error": ...}`
-frame, say, after a rate limit — sends that as data, and the delta extractor
+that signals a mid-stream failure with a data event (an OpenAI `{"error": ...}`
+frame, say, after a rate limit) sends that as data, and the delta extractor
 returns nothing for it, the same as for any non-content event. The stream then
 ends normally with whatever partial value had accumulated, and no error is
 raised: a truncated answer can look like a finished one. A genuine stream error
@@ -93,8 +93,8 @@ raised: a truncated answer can look like a finished one. A genuine stream error
 skipped. If a provider signals errors this way, check for its error frame
 yourself rather than trusting that a completed stream means a complete answer.
 
-`sseJson` takes the raw byte stream, so chunk boundaries falling inside a line
-or an event are handled for you. It follows the event-stream format: several
+`sseJson` takes the raw byte stream and handles chunk boundaries that fall
+inside a line or an event. It follows the event-stream format: several
 `data:` lines in one event are joined with newlines, one leading space after
 the colon is stripped, `:` comments and the `event:`/`id:`/`retry:` fields are
 ignored, and the `[DONE]` sentinel ends the stream rather than being parsed. If
@@ -137,10 +137,10 @@ bytes chopped at arbitrary boundaries the way a socket delivers them.
 - braces and quotes inside strings, and escaped quotes, do not confuse it
 - a valid partial number is kept; an unresolved literal skips that one frame
 
-It does the retrieval-of-structure, not generation. It never calls a model; you
+It extracts structure; it does not produce content. It never calls a model; you
 bring the stream. An unresolved scalar yields `null` rather than a guess, which
 keeps a half-written value off your screen; structure that has arrived is
-reported as far as it goes, so a container the model has opened but not yet
+reported as far as it goes: a container the model has opened but not yet
 filled appears as an empty one.
 
 ## Cost
@@ -149,7 +149,7 @@ filled appears as an empty one.
 quadratic in the length of the response: a stream twice as long costs about four
 times as much, not twice. Measured on a growing JSON array, 1,000 elements took
 about a second and 4,000 took about fourteen. For the interactive case this is
-built for — a model streaming a UI-sized object at reading speed — that cost is
+built for (a model streaming a UI-sized object at reading speed) that cost is
 invisible. It becomes real for a large machine-to-machine payload: if you are
 streaming a multi-megabyte document only to consume the final value, decode it
 once at the end with `dart:convert` instead, and use this package for the
@@ -157,8 +157,8 @@ partials you actually render.
 
 ## Roadmap
 
-Typed streaming today needs a small hand-written builder. Generated builders,
-so `streamPartial<T>` needs no mapping for your own classes, are planned next.
+Typed streaming today needs a small hand-written builder. Generated builders
+are planned next: `streamPartial<T>` will need no mapping for your own classes.
 
 ## License
 

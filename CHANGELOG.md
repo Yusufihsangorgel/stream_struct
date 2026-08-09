@@ -5,15 +5,15 @@
   block it came from. That is right while the answer holds a single tool call,
   but parallel tool use opens a block per call: the fragments interleave into
   one buffer, the concatenation stops parsing, and every call after the first
-  disappears — no exception, no empty frame, nothing to notice. An agent
+  disappears: no exception, no empty frame, nothing to notice. An agent
   written against Anthropic's parallel tool use simply never saw its second
   tool's arguments.
 
   `anthropicToolDelta()` locks onto one content block and ignores the rest. By
   default it takes the first tool call that opens, stepping over the leading
   text block a model usually emits; pass `index` to follow another. It keeps
-  the block it chose, so create one per stream. Reading a second call means
-  running the stream again with its index — one `streamPartialJson` carries
+  the block it chose; create one per stream. Reading a second call means
+  running the stream again with its index. One `streamPartialJson` carries
   one JSON value, and two calls are two values.
 
   `anthropicDelta` is unchanged and still right for the single-call case; its
@@ -26,8 +26,8 @@ parser bugs; this freezes the surface after checking the parser the hardest way
 I could think of rather than waiting for the fixes to age.
 
 Finding two bugs at the moment of freezing is a reason to look harder, so:
-every prefix of ten real documents — objects, nested arrays, escapes, unicode,
-exponents, empty containers, strings containing braces — was parsed and checked,
+every prefix of ten real documents (objects, nested arrays, escapes, unicode,
+exponents, empty containers, strings containing braces) was parsed and checked,
 384 prefixes in all. None threw, none lost structure that had already appeared,
 and every complete document decoded exactly. That property is now a test. It
 sits on top of the 35 hostile inputs (truncated escapes, dangling keys, garbage,
@@ -38,7 +38,7 @@ Two limits are documented rather than fixed, because both are inherent:
 `streamPartialJson` re-parses the buffer each delta, so cost is quadratic in the
 response length (fine for a model streaming a UI-sized object, wrong for a
 multi-megabyte payload you only want the end of), and an in-band provider error
-frame is skipped like any non-content event, so a truncated answer can look
+frame is skipped like any non-content event, which lets a truncated answer look
 finished. Both are called out in the README with what to do instead.
 
 Every public type is `final`; `meta` is the only dependency.
@@ -51,7 +51,7 @@ Every public type is `final`; `meta` is the only dependency.
   a started-but-unresolved scalar value (`{"a":1,"n":12.` or `{"a":1,"n":tr`),
   and a complete object key with no colon yet (`{"name":"Ada","score"`). Both
   returned `null`, so during streaming an object would disappear the instant a
-  number grew a decimal point or the next key finished — taking its already
+  number grew a decimal point or the next key finished, taking its already
   resolved fields with it. They now drop just the unfinished entry and keep the
   object, the same as a dangling key or colon, matching the documented rule that
   structure which has arrived is returned even when a field is incomplete. Found
@@ -62,8 +62,8 @@ Every public type is `final`; `meta` is the only dependency.
 
 - Document that an in-band provider error event is not surfaced. A provider that
   signals a mid-stream failure with a data frame (an OpenAI `{"error": ...}`
-  after a rate limit) has it skipped like any non-content event, so the stream
-  ends normally with the partial value and no error — a truncated answer can
+  after a rate limit) has it skipped like any non-content event. The stream
+  ends normally with the partial value and no error: a truncated answer can
   look finished. Verified: a genuine stream error (dropped socket) still
   propagates; only the in-band error event is skipped. The README now says to
   check the provider's error frame yourself. Docs only.
@@ -71,10 +71,10 @@ Every public type is `final`; `meta` is the only dependency.
 ## 0.3.7
 
 - Document the cost. `streamPartialJson` re-parses the whole buffer on each
-  delta, so it is quadratic in the response length — a stream twice as long
+  delta, so it is quadratic in the response length: a stream twice as long
   costs about four times as much. Measured on a growing array: ~1s at 1,000
   elements, ~14s at 4,000. Invisible for the interactive case this is for, real
-  for a large machine-to-machine payload — the README now says so and points at
+  for a large machine-to-machine payload; the README now says so and points at
   decoding once with `dart:convert` when you only need the final value. Docs
   only; an incremental parser is on the roadmap.
 
@@ -83,13 +83,13 @@ Every public type is `final`; `meta` is the only dependency.
 - **`geminiDelta` no longer returns thinking as if it were the answer.** With
   Gemini thinking enabled, a chunk carries the model's reasoning as a part
   flagged `thought: true`, ahead of the answer part. The adapter read
-  `parts[0].text` unconditionally, so it streamed the reasoning into the JSON
-  buffer. It now returns the first part that is not a thought and has text, so a
+  `parts[0].text` unconditionally and streamed the reasoning into the JSON
+  buffer. It now returns the first part that is not a thought and has text: a
   `[{thought}, {answer}]` chunk yields the answer, and it no longer assumes the
   answer is always `parts[0]`.
 - Clarify the `parsePartialJson` null contract in the README: a fully decoded
   top-level `null` also returns `null`, so `parsePartialJson` alone cannot tell
-  it from "nothing decodable yet" — `parsePartialJsonResult.hasValue` is what
+  it from "nothing decodable yet"; `parsePartialJsonResult.hasValue` is what
   distinguishes them.
 
 ## 0.3.5
@@ -97,14 +97,14 @@ Every public type is `final`; `meta` is the only dependency.
 - **Fix `anthropicDelta` for tool-based structured output.** It returned both a
   content block's `delta.text` and a tool block's `delta.partial_json`, and a
   real Anthropic answer emits a prose text block ("Let me look that up.") before
-  the tool call — so the prose was spliced onto the front of the JSON buffer and
+  the tool call. The prose was spliced onto the front of the JSON buffer and
   the whole thing stopped parsing. Reproduced end to end: a tool stream with a
   leading text block yielded **zero frames**. `anthropicDelta` now follows only
   the tool block's `partial_json`, which is the way to get structured output
   from Anthropic; the same stream now resolves to `{"name": "Ada"}`.
-- Add `anthropicTextDelta` for the other Anthropic shape — a model asked for raw
-  JSON as plain text, with no tool — which reads `delta.text`. The two modes
-  never both apply to one answer, so they are separate functions rather than one
+- Add `anthropicTextDelta` for the other Anthropic shape (a model asked for raw
+  JSON as plain text, with no tool), which reads `delta.text`. The two modes
+  never both apply to one answer, and they are separate functions rather than one
   that guesses and occasionally concatenates.
 
   Breaking only if you were using `anthropicDelta` against a no-tool prose-JSON
@@ -114,8 +114,8 @@ Every public type is `final`; `meta` is the only dependency.
 
 - **Fix the README's own streaming example.** It cast every frame with
   `partial as Map<String, dynamic>`, and 0.3.2 added the top-level-`null` frame
-  on purpose — so a model that answers `null` made the documented example throw
-  `_TypeError`. Reproduced with the README lines verbatim over the deltas `nu`
+  on purpose, which made a model answering `null` throw `_TypeError` in the
+  documented example. Reproduced with the README lines verbatim over the deltas `nu`
   then `ll`. The example now checks the shape before using it, which is what a
   caller has to do anyway once the answer can be a scalar or an array.
 - Stop shipping `doc/blog/` in the published archive. It held a diagram used by
@@ -151,7 +151,7 @@ Every public type is `final`; `meta` is the only dependency.
   common "nothing matched" schema) produced no frames and no error, on every
   delta, for the rest of the stream, which reads as a stalled connection
   rather than a real answer. `streamPartialJson` now resolves that ambiguity
-  internally, so a genuine top-level `null` is emitted once, like any other
+  internally: a genuine top-level `null` is emitted once, like any other
   value. `parsePartialJson`'s own `Object?` contract is unchanged: called
   directly, it still cannot tell the two cases apart.
 
@@ -176,7 +176,7 @@ Every public type is `final`; `meta` is the only dependency.
   part of SSE that is hard.
 - `example/README.md` covers writing a builder that tolerates a half-filled
   object, choosing among the four entry points, and the thing the output makes
-  visible: a partial number reads 2 before it reads 20, so a partial value is
+  visible: a partial number reads 2 before it reads 20. A partial value is
   not merely incomplete, it can be provisionally wrong. Render it, don't act on
   it.
 
