@@ -1,3 +1,12 @@
+## 1.3.2
+
+- New `example/two_providers.dart`. The package's headline is "OpenAI,
+  Anthropic and Gemini extractors" and no example used one — the other two
+  call `sseJson` and `streamPartialJson`, which is the middle of the pipeline.
+  This fills the same object from both providers' forced-tool-call streams,
+  where the only difference in the code is which extractor is passed. Canned
+  chunks, so it runs offline and prints the same thing every time.
+
 ## 1.3.1
 
 - Tests for `sseDataFromLines` and `sseJsonFromData` called directly. Both are
