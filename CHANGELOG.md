@@ -1,3 +1,13 @@
+## 1.3.1
+
+- Tests for `sseDataFromLines` and `sseJsonFromData` called directly. Both are
+  exported with their own contract, and every SSE test reached them through
+  `sseData`, which decodes bytes and splits lines first. Seven cases the
+  byte-level tests could not reach, including a bare `data` line with no colon
+  -- which the SSE grammar makes a data field with an empty value, and which an
+  implementation that skipped colonless lines would have got wrong while
+  passing everything else. No behaviour changed.
+
 ## 1.3.0
 
 - **Add `openAiToolDelta`, for a forced tool call on an OpenAI stream.**

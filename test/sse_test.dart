@@ -108,4 +108,68 @@ void main() {
       );
     });
   });
+
+  /// The two line-level entry points are exported with their own contract --
+  /// "use this when the transport hands you lines" -- and every test above
+  /// reaches them through `sseData`, which decodes bytes and splits lines
+  /// first. Calling them directly is what a caller with a line-based transport
+  /// does, and the cases below are ones the byte-level tests cannot reach.
+  group('sseDataFromLines', () {
+    Future<List<String>> payloads(List<String> lines) =>
+        sseDataFromLines(Stream.fromIterable(lines)).toList();
+
+    test('a data line with no colon is a data field with an empty value', () {
+      // The SSE grammar allows a bare field name. An implementation that
+      // skipped colonless lines would pass every other test in this file.
+      expect(payloads(['data', '', 'data: x', '']), completion(['', 'x']));
+    });
+
+    test('a colon inside the value is left alone', () {
+      // Only the first colon separates field from value, and timestamps and
+      // URLs in a payload are full of the rest.
+      expect(
+        payloads([r'data: {"at":"12:30"}', '']),
+        completion([r'{"at":"12:30"}']),
+      );
+    });
+
+    test('exactly one leading space goes, not all of them', () {
+      expect(payloads(['data:  x', '']), completion([' x']));
+      expect(payloads(['data:x', '']), completion(['x']));
+    });
+
+    test('blank lines in a row do not produce empty events', () {
+      // A keep-alive or a sloppy encoder can send several. Emitting an empty
+      // payload for each would hand the caller events that never happened.
+      expect(
+        payloads(['data: a', '', '', '', 'data: b', '']),
+        completion(['a', 'b']),
+      );
+    });
+
+    test('a field named data-something is not a data field', () {
+      expect(payloads(['datax: a', 'data: b', '']), completion(['b']));
+    });
+  });
+
+  group('sseJsonFromData', () {
+    test('stops at the sentinel and drops what follows', () async {
+      // A provider can leave the connection open after [DONE]. Whatever
+      // arrives then is not part of the response.
+      final events = await sseJsonFromData(
+        Stream.fromIterable(['{"a":1}', sseDoneSentinel, '{"b":2}']),
+      ).toList();
+
+      expect(events, [
+        {'a': 1}
+      ]);
+    });
+
+    test('a JSON array payload is rejected, not passed off as an object', () {
+      expect(
+        sseJsonFromData(Stream.fromIterable(['[1,2]'])).toList(),
+        throwsFormatException,
+      );
+    });
+  });
 }
