@@ -164,6 +164,16 @@ extractor does not read them. Parallel calls are several `functionCall` parts
 on one content: it follows the first by default, takes `index:` to follow
 another, and keeps that choice — so create one per stream.
 
+The same forced-tool-call shape is how
+[`instructor_dart`](https://pub.dev/packages/instructor_dart) asks for a
+schema. This package does not validate; that one does not parse a token
+stream. `example/with_instructor.dart` is the join: the object fills in as
+fragments arrive, then one `Schema.validate` on the last frame, which either
+yields the typed value or lists what failed. Canned chunks, so it runs
+offline. The extractor has to be the tool one (`openAiToolDelta()`,
+`anthropicDelta`, `geminiToolDelta()`): `openAiDelta` on a tool-call stream
+is the empty-stream mistake above.
+
 `sseJson` decodes SSE frames; it does not interpret what is in them. A provider
 that signals a mid-stream failure with a data event (an OpenAI `{"error": ...}`
 frame, say, after a rate limit) sends that as data, and the delta extractor

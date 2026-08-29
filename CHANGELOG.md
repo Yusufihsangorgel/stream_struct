@@ -1,3 +1,18 @@
+## 1.4.1
+
+- New `example/with_instructor.dart`. This package fills the object as tokens
+  arrive; `instructor_dart` validates a finished reply against a schema (and
+  retries a miss). A caller who wants both currently has to invent the join:
+  render the partials, then one `Schema.validate` on the last frame. The
+  example is that join, on canned forced-tool-call chunks so it runs offline,
+  and it is honest about the friction — `Instructor.extract` always talks to
+  a model, so it is not the function you call on a stream that has already
+  ended; the two packages disagree about the map type (`Map<String, dynamic>`
+  here, `Map<String, Object?>` there); and the builder that tolerates a
+  half-filled object is not the `fromJson` that runs after validation. No
+  runtime dependency was added and none will be: `instructor_dart` is a dev
+  dependency used by that one example file.
+
 ## 1.4.0
 
 - **Add `geminiToolDelta`, for a function call on a Gemini stream.**

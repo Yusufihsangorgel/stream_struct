@@ -59,11 +59,12 @@ A forced tool call is not content. On OpenAI, `content` stays `null` for the who
 
 - Public API: `lib/stream_struct.dart` (re-exports `lib/src/partial_json.dart`, `lib/src/sse.dart`, `lib/src/streaming.dart`).
 - Tests: `test/partial_json_test.dart`, `test/sse_test.dart`, `test/streaming_test.dart`.
-- Examples (offline, no key): `example/openai_end_to_end.dart`, `example/stream_struct_example.dart`, `example/two_providers.dart`.
+- Examples (offline, no key): `example/openai_end_to_end.dart`, `example/stream_struct_example.dart`, `example/two_providers.dart`, `example/with_instructor.dart`.
 
 ```
 dart test
 dart run example/openai_end_to_end.dart
 dart run example/stream_struct_example.dart
 dart run example/two_providers.dart
+dart run example/with_instructor.dart
 ```

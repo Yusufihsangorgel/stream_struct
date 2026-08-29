@@ -3,7 +3,7 @@ description: >-
   Stream an LLM's structured output as it arrives: tolerant partial JSON that
   fills the typed object token by token. Decodes SSE, with OpenAI, Anthropic
   and Gemini extractors.
-version: 1.4.0
+version: 1.4.1
 repository: https://github.com/Yusufihsangorgel/stream_struct
 issue_tracker: https://github.com/Yusufihsangorgel/stream_struct/issues
 topics:
@@ -30,5 +30,9 @@ dependencies:
   meta: ^1.15.0
 
 dev_dependencies:
+  # example/with_instructor.dart only. This package does not validate
+  # schemas and instructor_dart does not parse token streams, so a runtime
+  # dependency would pull it into every consumer, most of whom never call it.
+  instructor_dart: ^1.2.2
   lints: ^6.0.0
   test: ^1.25.0

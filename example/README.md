@@ -94,3 +94,20 @@ Take the right-hand column when the source is a decoded SSE stream, which it is
 whenever you are talking to OpenAI, Anthropic, or Gemini. Take the left when you
 already hold the text deltas, for instance from a provider SDK that has done the
 decoding for you.
+
+## A validated object at the end
+
+```
+dart run example/with_instructor.dart
+```
+
+A live-updating UI is only half of it. If you also want a schema-validated typed
+value, that is [`instructor_dart`](https://pub.dev/packages/instructor_dart):
+this package fills the object as tokens arrive, that one validates (and, on a
+miss, retries). `with_instructor.dart` is the seam, on canned forced-tool-call
+chunks so it runs offline.
+
+There is no shared function. Render the partials, then one `Schema.validate` on
+the last frame. `Instructor.extract` always talks to a model, so it is not the
+call you make on a stream that has already ended. The extractor has to match how
+instructor asked: a forced tool call, so `openAiToolDelta()`, not `openAiDelta`.
