@@ -3,7 +3,7 @@ description: >-
   Stream an LLM's structured output as it arrives: tolerant partial JSON that
   fills the typed object token by token. Decodes SSE, with OpenAI, Anthropic
   and Gemini extractors.
-version: 1.3.2
+version: 1.3.3
 repository: https://github.com/Yusufihsangorgel/stream_struct
 issue_tracker: https://github.com/Yusufihsangorgel/stream_struct/issues
 topics:
@@ -15,8 +15,7 @@ topics:
 
 screenshots:
   - description: >-
-      A step chart of one model answer replayed a character at a time:
-      parsePartialJson climbs to all eight fields as they arrive, while
+      A step chart: parsePartialJson fills in eight fields as they arrive;
       jsonDecode stays at zero until the end.
     path: doc/growth.png
   - description: >-

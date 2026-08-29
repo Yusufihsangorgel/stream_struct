@@ -1,3 +1,9 @@
+## 1.3.3
+
+- The screenshot description for `doc/growth.png` is shorter. It was 170
+  characters, over pub.dev's 160-character limit, which costs the package
+  ten of its 160 pub points. The measurement it describes is unchanged.
+
 ## 1.3.2
 
 - New `example/two_providers.dart`. The package's headline is "OpenAI,
