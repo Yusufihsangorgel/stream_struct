@@ -198,6 +198,11 @@ String? anthropicTextDelta(Map<String, dynamic> chunk) {
 /// answer and must not be spliced into the JSON. This returns the first part
 /// that is *not* a thought and has text, so a `[{thought}, {answer}]` chunk
 /// yields the answer, and it does not assume the answer is always `parts[0]`.
+///
+/// Ask for the JSON with a function call instead and `text` stays empty: this
+/// returns nothing for every chunk and the stream ends having emitted no
+/// frames at all, with no exception to notice. Use [geminiToolDelta] for that
+/// shape.
 String? geminiDelta(Map<String, dynamic> chunk) {
   final candidates = chunk['candidates'];
   if (candidates is List && candidates.isNotEmpty) {
@@ -218,6 +223,83 @@ String? geminiDelta(Map<String, dynamic> chunk) {
     }
   }
   return null;
+}
+
+/// A [DeltaExtractor] for the JSON of a **function call** on a Gemini
+/// `streamGenerateContent` stream, which arrives as
+/// `candidates[0].content.parts[n].functionCall.args`.
+///
+/// Forcing a function call is the other way to make the model answer in your
+/// schema, and [geminiDelta] cannot read it: that shape puts the payload in
+/// `functionCall`, not in `text`, so the stream ends having emitted nothing
+/// and no error is raised. The two are separate rather than one adapter
+/// because a single answer can carry both — a thought part, or a prose `text`
+/// part before the call — and returning that too would put it in front of the
+/// JSON buffer, where it stops parsing.
+///
+/// Gemini does **not** stream function arguments as concatenable JSON
+/// fragments the way OpenAI (`function.arguments`) and Anthropic
+/// (`partial_json`) do. On `streamGenerateContent` the call arrives complete
+/// in one chunk, `args` already a JSON object (a protobuf Struct), not a
+/// string. This encodes that object so the rest of the pipeline can treat it
+/// as one fragment: you get one frame, the finished arguments, not a growing
+/// prefix. Chunks that carry no `functionCall.args` — thought parts, usage,
+/// a name-only opening, Vertex `partialArgs` — return `null`.
+///
+/// Vertex AI's `streamFunctionCallArguments` flag is a different shape:
+/// `partialArgs` with `jsonPath` and typed values, not JSON text. Those
+/// fragments cannot be concatenated onto a JSON buffer, so this does not
+/// read them. Wait for `args`, or don't enable that flag.
+///
+/// Parallel calls are several `functionCall` parts on one content. The
+/// extractor this returns locks onto one — by default the first it sees, or
+/// pass [index] to follow a known one (0-based among `functionCall` parts,
+/// not among all parts) — and ignores the rest. Gemini does not tag each
+/// part with an `index` field, so the number is the position in that list
+/// on the chunk. Because it remembers the call it chose, create one per
+/// stream rather than sharing it:
+///
+/// ```dart
+/// streamPartialJsonFrom(geminiChunks, geminiToolDelta())
+///     .listen((partial) => setState(() => _draft = partial));
+/// ```
+///
+/// To read a second call, run the stream again with its [index]. One
+/// [streamPartialJson] carries one JSON value; two calls are two values and
+/// cannot share a buffer.
+///
+/// A proxy that already stringified `args` is followed as fragments, the
+/// same as OpenAI. One shape is not handled: `args` that is neither a Map
+/// nor a String is a finished value of the wrong type, not something to
+/// accumulate, and this returns `null` for it.
+DeltaExtractor geminiToolDelta({int? index}) {
+  var followed = index;
+  return (Map<String, dynamic> chunk) {
+    final candidates = chunk['candidates'];
+    if (candidates is! List || candidates.isEmpty) return null;
+    final first = candidates.first;
+    if (first is! Map) return null;
+    final content = first['content'];
+    if (content is! Map) return null;
+    final parts = content['parts'];
+    if (parts is! List) return null;
+    var n = 0;
+    for (final part in parts) {
+      if (part is! Map) continue;
+      if (part['thought'] == true) continue;
+      final call = part['functionCall'];
+      if (call is! Map) continue;
+      followed ??= n;
+      final match = n == followed;
+      n++;
+      if (!match) continue;
+      final args = call['args'];
+      if (args is String) return args;
+      if (args is Map) return jsonEncode(args);
+      return null;
+    }
+    return null;
+  };
 }
 
 /// Accumulates a stream of text [deltas] and, after each one, emits the JSON

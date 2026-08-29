@@ -30,10 +30,11 @@ Text fragments already in hand: `streamPartialJson(deltas)`. Decoded event maps 
 | `anthropicToolDelta()` | one block's `partial_json` | several tool calls |
 | `anthropicTextDelta` | `delta.text` | JSON as plain text, no tool |
 | `geminiDelta` | first non-thought `candidates[0].content.parts[].text` | Gemini text |
+| `geminiToolDelta()` | `candidates[0].content.parts[n].functionCall.args` | Gemini function call |
 
-`openAiToolDelta` and `anthropicToolDelta` are factories: they remember which `index` they locked onto. Call once per stream.
+`openAiToolDelta`, `anthropicToolDelta`, and `geminiToolDelta` are factories: they remember which `index` they locked onto. Call once per stream.
 
-A forced tool call is not content. On OpenAI, `content` stays `null` for the whole answer while JSON arrives in `arguments`, so `openAiDelta` is blind to it. On Anthropic, JSON is `partial_json` on the tool block; a leading prose `delta.text` is not part of it. `anthropicDelta` ignores that text so it is not spliced onto the JSON (`Let me look that up.{"name":"Ada"}` yields zero frames). `geminiDelta` skips a part with `thought: true` for the same reason.
+A forced tool call is not content. On OpenAI, `content` stays `null` for the whole answer while JSON arrives in `arguments`, so `openAiDelta` is blind to it. On Anthropic, JSON is `partial_json` on the tool block; a leading prose `delta.text` is not part of it. `anthropicDelta` ignores that text so it is not spliced onto the JSON (`Let me look that up.{"name":"Ada"}` yields zero frames). `geminiDelta` skips a part with `thought: true` for the same reason. On Gemini a function call puts the payload in `functionCall.args`, already a finished JSON object, not text fragments: `geminiDelta` is blind to it, and `geminiToolDelta` yields one frame rather than a growing prefix. Vertex `partialArgs` is a different shape and is not read.
 
 **SSE helpers.**
 
@@ -44,9 +45,9 @@ A forced tool call is not content. On OpenAI, `content` stays `null` for the who
 
 ## Mistakes
 
-- Wrong extractor (`openAiDelta` on a tool-call stream, `openAiToolDelta()` on a content stream, `anthropicTextDelta` on a tool stream, or the reverse). Symptom: zero frames, stream ends, no error. Fix: match the table to how you asked for JSON.
+- Wrong extractor (`openAiDelta` on a tool-call stream, `openAiToolDelta()` on a content stream, `anthropicTextDelta` on a tool stream, `geminiDelta` on a function-call stream, or the reverse). Symptom: zero frames, stream ends, no error. Fix: match the table to how you asked for JSON.
 - `anthropicDelta` on parallel tool use. Symptom: fragments from two JSON values concatenate; later calls vanish. Fix: `anthropicToolDelta()` or `anthropicToolDelta(index: n)`.
-- One `openAiToolDelta()` / `anthropicToolDelta()` shared across streams. Symptom: the second stream follows the first locked `index`. Fix: one factory call per stream.
+- One `openAiToolDelta()` / `anthropicToolDelta()` / `geminiToolDelta()` shared across streams. Symptom: the second stream follows the first locked `index`. Fix: one factory call per stream.
 - Lines or `Map` chunks passed to `sseJson`. Symptom: type error. Fix: bytes → `sseJson`; lines → `sseDataFromLines`; maps → `streamPartialJsonFrom`.
 - Builder field read as `partial['title'] as String`. Symptom: cast throw on the first fragment. Fix: `as String? ?? ''` (`Recipe.fromPartial` in the example).
 - `jsonDecode` on the live buffer. Symptom: `FormatException` until the last token. Fix: `parsePartialJson` / `streamPartialJson`.

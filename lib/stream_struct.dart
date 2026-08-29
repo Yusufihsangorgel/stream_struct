@@ -5,8 +5,9 @@
 /// far. [streamPartialJson] and [streamPartialJsonFrom] turn a delta stream into
 /// a stream of growing values, and [streamPartial] maps those into a typed
 /// object. [openAiDelta], [anthropicDelta], and [geminiDelta] pull the text
-/// fragment out of each provider's streamed chunk, and [openAiToolDelta] and
-/// [anthropicToolDelta] pull it out of a forced tool call instead.
+/// fragment out of each provider's streamed chunk, and [openAiToolDelta],
+/// [anthropicToolDelta], and [geminiToolDelta] pull it out of a forced tool
+/// call instead.
 ///
 /// [sseJson] decodes the Server-Sent Events body those providers actually send,
 /// so an HTTP response can go straight through without hand-written line
@@ -26,6 +27,7 @@ export 'src/streaming.dart'
         anthropicToolDelta,
         anthropicTextDelta,
         geminiDelta,
+        geminiToolDelta,
         streamPartialJson,
         streamPartialJsonFrom,
         streamPartial,

@@ -55,6 +55,75 @@ final _forcedToolCall = <Map<String, dynamic>>[
   },
 ];
 
+/// One chunk of a Gemini `streamGenerateContent` body in which the model is
+/// answering with a function call, so the JSON arrives as
+/// `candidates[0].content.parts[n].functionCall.args` — already a decoded
+/// object, not a string fragment.
+Map<String, dynamic> _geminiFunctionChunk(
+  Map<String, dynamic> args, {
+  String name = 'extract_recipe',
+}) =>
+    {
+      'candidates': [
+        {
+          'content': {
+            'role': 'model',
+            'parts': [
+              {
+                'functionCall': {
+                  'name': name,
+                  'args': args,
+                },
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+/// A whole function call, in the shape Gemini streams it: a thought chunk,
+/// an empty-parts chunk, the complete `functionCall.args` object in one
+/// event, then a finish-reason chunk. Arguments do not arrive as growing
+/// JSON text; the payload is one finished object.
+final _forcedGeminiFunctionCall = <Map<String, dynamic>>[
+  {
+    'candidates': [
+      {
+        'content': {
+          'role': 'model',
+          'parts': [
+            {'text': 'I will extract the recipe.', 'thought': true},
+          ],
+        },
+      },
+    ],
+  },
+  {
+    'candidates': [
+      {
+        'content': {
+          'role': 'model',
+          'parts': <Object?>[],
+        },
+      },
+    ],
+  },
+  _geminiFunctionChunk({'title': 'Focaccia', 'prep_min': 20}),
+  {
+    'candidates': [
+      {
+        'finishReason': 'STOP',
+        'content': {
+          'role': 'model',
+          'parts': [
+            {'text': ''},
+          ],
+        },
+      },
+    ],
+  },
+];
+
 void main() {
   group('streamPartialJson', () {
     test('emits the object growing and ends on the final value', () async {
@@ -464,6 +533,313 @@ void main() {
         }),
         '{"answer":1}',
       );
+    });
+
+    test('geminiDelta returns null for a function-call chunk', () {
+      // The split between the two Gemini adapters is deliberate, and this is
+      // what makes it necessary: a function call leaves text empty, so the
+      // text adapter has nothing to return.
+      expect(geminiDelta(_geminiFunctionChunk({'title': 'Focaccia'})), isNull);
+    });
+
+    test(
+        "geminiToolDelta reads a function call's args from a multi-chunk stream",
+        () {
+      final extractor = geminiToolDelta();
+      final fragments =
+          _forcedGeminiFunctionCall.map(extractor).whereType<String>().toList();
+      expect(fragments, ['{"title":"Focaccia","prep_min":20}']);
+      // Thought, empty parts, and the finish chunk carry no args; none of
+      // those is an error.
+      expect(extractor(_forcedGeminiFunctionCall.first), isNull);
+      expect(extractor(_forcedGeminiFunctionCall.last), isNull);
+    });
+
+    test('geminiToolDelta returns null for a chunk carrying nothing', () {
+      expect(
+        geminiToolDelta()({
+          'candidates': [
+            {
+              'content': {
+                'role': 'model',
+                'parts': <Object?>[],
+              },
+            },
+          ],
+        }),
+        isNull,
+      );
+    });
+
+    test('geminiToolDelta ignores a text stream', () {
+      expect(
+        geminiToolDelta()({
+          'candidates': [
+            {
+              'content': {
+                'parts': [
+                  {'text': '{"a"'}
+                ]
+              }
+            },
+          ],
+        }),
+        isNull,
+      );
+    });
+
+    test('geminiToolDelta does not splice thought or prose onto the tool JSON',
+        () async {
+      // A thought part, or a prose text part, can sit on the same stream as
+      // the function call. Fold either into this adapter and the buffer reads
+      // `Let me look that up.{"name":"Ada"}`, which never parses: zero frames.
+      final chunks = <Map<String, dynamic>>[
+        {
+          'candidates': [
+            {
+              'content': {
+                'parts': [
+                  {'text': 'Let me look that up.', 'thought': true},
+                ]
+              }
+            },
+          ],
+        },
+        {
+          'candidates': [
+            {
+              'content': {
+                'parts': [
+                  {'text': 'Let me look that up.'},
+                ]
+              }
+            },
+          ],
+        },
+        _geminiFunctionChunk({'name': 'Ada'}),
+      ];
+      final frames = await streamPartialJsonFrom(
+        Stream.fromIterable(chunks),
+        geminiToolDelta(),
+      ).toList();
+      expect(frames.last, {'name': 'Ada'});
+    });
+
+    test('geminiToolDelta follows one function call out of several', () async {
+      // Parallel calls are several functionCall parts on one content, and
+      // their args are different JSON values: appended to one buffer they
+      // stop parsing and the second call disappears without an error.
+      final chunks = <Map<String, dynamic>>[
+        {
+          'candidates': [
+            {
+              'content': {
+                'parts': [
+                  {
+                    'functionCall': {
+                      'name': 'get_weather',
+                      'args': {'city': 'Oslo'},
+                    },
+                  },
+                  {
+                    'functionCall': {
+                      'name': 'get_time',
+                      'args': {'tz': 'CET'},
+                    },
+                  },
+                ]
+              }
+            },
+          ],
+        },
+      ];
+      Future<List<Object?>> collect(DeltaExtractor extractor) =>
+          streamPartialJsonFrom(Stream.fromIterable(chunks), extractor)
+              .toList();
+
+      // No index given: lock onto the first one seen and ignore the other.
+      expect((await collect(geminiToolDelta())).last, {'city': 'Oslo'});
+      // The second call is reachable by running the stream again for it.
+      expect((await collect(geminiToolDelta(index: 1))).last, {'tz': 'CET'});
+    });
+
+    test('geminiToolDelta index skips thought parts', () {
+      final chunk = <String, dynamic>{
+        'candidates': [
+          {
+            'content': {
+              'parts': [
+                {'text': 'thinking', 'thought': true},
+                {
+                  'functionCall': {
+                    'name': 'get_weather',
+                    'args': {'city': 'Oslo'},
+                  },
+                },
+                {
+                  'functionCall': {
+                    'name': 'get_time',
+                    'args': {'tz': 'CET'},
+                  },
+                },
+              ]
+            }
+          },
+        ],
+      };
+      expect(geminiToolDelta()(chunk), '{"city":"Oslo"}');
+      expect(geminiToolDelta(index: 1)(chunk), '{"tz":"CET"}');
+    });
+
+    test('geminiToolDelta picks its call out of a chunk carrying several', () {
+      Map<String, dynamic> pair(
+        Map<String, dynamic> a,
+        Map<String, dynamic> b,
+      ) =>
+          {
+            'candidates': [
+              {
+                'content': {
+                  'parts': [
+                    {
+                      'functionCall': {'name': 'get_weather', 'args': a},
+                    },
+                    {
+                      'functionCall': {'name': 'get_time', 'args': b},
+                    },
+                  ]
+                }
+              },
+            ],
+          };
+
+      expect(
+        geminiToolDelta()(pair({'city': 'Oslo'}, {'tz': 'CET'})),
+        '{"city":"Oslo"}',
+      );
+      expect(
+        geminiToolDelta(index: 1)(pair({'city': 'Oslo'}, {'tz': 'CET'})),
+        '{"tz":"CET"}',
+      );
+    });
+
+    test('geminiToolDelta returns null for Vertex partialArgs', () {
+      // streamFunctionCallArguments emits jsonPath + typed values, not
+      // concatenable JSON. Pretending those are fragments would write
+      // garbage onto the buffer; this waits for `args` instead.
+      expect(
+        geminiToolDelta()({
+          'candidates': [
+            {
+              'content': {
+                'parts': [
+                  {
+                    'functionCall': {
+                      'name': 'controlLight',
+                      'partialArgs': [
+                        {
+                          'jsonPath': r'$.brightness',
+                          'numberValue': 50,
+                        },
+                      ],
+                      'willContinue': true,
+                    },
+                  },
+                ]
+              }
+            },
+          ],
+        }),
+        isNull,
+      );
+    });
+
+    test('geminiToolDelta returns null for malformed chunk shapes', () {
+      final shapes = <Map<String, dynamic>>[
+        <String, dynamic>{},
+        {'candidates': <Object?>[]},
+        {
+          'candidates': [null]
+        },
+        {
+          'candidates': [
+            {'content': null}
+          ]
+        },
+        {
+          'candidates': [
+            {
+              'content': {'parts': 'nope'}
+            }
+          ]
+        },
+        {
+          'candidates': [
+            {
+              'content': {
+                'parts': [null]
+              }
+            }
+          ]
+        },
+        {
+          'candidates': [
+            {
+              'content': {
+                'parts': [
+                  {'functionCall': 'nope'}
+                ]
+              }
+            }
+          ]
+        },
+        // A name-only opening chunk, before args exist.
+        {
+          'candidates': [
+            {
+              'content': {
+                'parts': [
+                  {
+                    'functionCall': {'name': 'extract_recipe'}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        // args that is neither a Map nor a String. Not something that can
+        // be accumulated, but it must not throw either.
+        {
+          'candidates': [
+            {
+              'content': {
+                'parts': [
+                  {
+                    'functionCall': {'args': 42}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+      ];
+      for (final shape in shapes) {
+        expect(geminiToolDelta()(shape), isNull, reason: '$shape');
+      }
+    });
+
+    test('a function call goes end to end through streamPartialJsonFrom',
+        () async {
+      final frames = await streamPartialJsonFrom(
+        Stream.fromIterable(_forcedGeminiFunctionCall),
+        geminiToolDelta(),
+      ).toList();
+      // Read through geminiDelta this same stream yields nothing at all, with
+      // no exception: the failure this adapter exists to end.
+      expect(frames, isNotEmpty, reason: 'a silent zero-frame stream');
+      expect(frames, [
+        {'title': 'Focaccia', 'prep_min': 20},
+      ]);
     });
   });
 

@@ -1,3 +1,34 @@
+## 1.4.0
+
+- **Add `geminiToolDelta`, for a function call on a Gemini stream.**
+  `geminiDelta` reads `candidates[0].content.parts[].text`, which is right when
+  you ask for JSON as ordinary text. Force a function call instead and the JSON
+  arrives as `functionCall.args` while `text` stays empty for the whole answer.
+  Read that stream with `geminiDelta` and every chunk yields nothing: the
+  stream ends having emitted no frames, no exception, nothing to notice. It
+  looked the same as a model that had said nothing.
+
+  `geminiToolDelta()` reads the arguments. It is a factory because parallel
+  calls are several `functionCall` parts on one content, and those are
+  different JSON values; it locks onto the first call it sees, takes `index`
+  to follow another, and remembers that choice, so create one per stream.
+
+  The contract is not the same as `openAiToolDelta` / `anthropicToolDelta`,
+  because Gemini does not stream function arguments as concatenable JSON
+  fragments. On `streamGenerateContent` the call arrives complete in one
+  chunk, `args` already a JSON object. This encodes that object so the rest
+  of the pipeline sees one fragment: you get one frame, not a growing prefix.
+  Vertex AI's `streamFunctionCallArguments` (`partialArgs` + `jsonPath`) is
+  a different shape and is not read.
+
+  Kept separate from `geminiDelta` rather than folded in, because one answer
+  can carry both: a thought part, or prose text before the call, would put
+  that in front of the JSON buffer, and the buffer would stop parsing. This
+  is the same split, and for the same reason, as the other two providers.
+
+  `geminiDelta` is unchanged; its documentation now states the limit and
+  points here. Nothing else in the API moves.
+
 ## 1.3.3
 
 - The screenshot description for `doc/growth.png` is shorter. It was 170

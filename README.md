@@ -118,11 +118,11 @@ streamPartialJsonFrom(sseJson(response), openAiDelta)  // choices[0].delta.conte
     .listen((partial) => print(partial));
 
 streamPartialJsonFrom(sseJson(response), anthropicDelta); // tool call's delta.partial_json
-streamPartialJsonFrom(sseJson(response), geminiDelta);    // candidates[0].content.parts[0].text
+streamPartialJsonFrom(sseJson(response), geminiDelta);    // candidates[0].content.parts[].text
 ```
 
-Both OpenAI and Anthropic have two shapes, and picking the wrong one gives you
-a stream that emits nothing and raises no error.
+OpenAI, Anthropic, and Gemini each have two shapes, and picking the wrong one
+gives you a stream that emits nothing and raises no error.
 
 On OpenAI it depends on how you asked for the schema. With `response_format`
 the JSON is the model's `content`, which is what `openAiDelta` reads. Force a
@@ -144,6 +144,25 @@ Anthropic splits the same way. `anthropicDelta` follows a forced tool call's
 because splicing that onto the JSON would break parsing. If instead you asked
 for raw JSON as plain text with no tool, use `anthropicTextDelta`; for an
 answer holding several tool calls, `anthropicToolDelta`.
+
+Gemini splits the same way. `geminiDelta` reads `parts[].text`. A function call
+puts the payload in `functionCall.args` while `text` stays empty, so
+`geminiDelta` is blind to it:
+
+```dart
+streamPartialJsonFrom(sseJson(response), geminiToolDelta())
+    .listen((partial) => print(partial));
+```
+
+Gemini does not stream those arguments token by token. On
+`streamGenerateContent` the call arrives complete in one chunk, `args` already
+a JSON object, not a string fragment. `geminiToolDelta` encodes that object so
+you get one frame — the finished arguments — rather than a growing prefix.
+Vertex AI's `streamFunctionCallArguments` flag is a different shape
+(`partialArgs` with `jsonPath`); those are not concatenable JSON, and this
+extractor does not read them. Parallel calls are several `functionCall` parts
+on one content: it follows the first by default, takes `index:` to follow
+another, and keeps that choice — so create one per stream.
 
 `sseJson` decodes SSE frames; it does not interpret what is in them. A provider
 that signals a mid-stream failure with a data event (an OpenAI `{"error": ...}`
