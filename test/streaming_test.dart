@@ -470,6 +470,56 @@ void main() {
     });
 
     test(
+        'anthropicToolDelta does not lock onto a leading server_tool_use block',
+        () async {
+      // A built-in server-side tool (web search, code execution, ...) opens
+      // its own content block and streams its input the same way a `tool_use`
+      // block does: a content_block_start naming the block's type, then
+      // content_block_delta events carrying `input_json_delta`/`partial_json`.
+      // The caller's own forced tool call opens afterward, at a later index.
+      // Locking onto the server tool's JSON instead of the caller's tool
+      // would silently hand back the wrong object.
+      final events = <Map<String, dynamic>>[
+        {
+          'type': 'content_block_start',
+          'index': 0,
+          'content_block': {
+            'type': 'server_tool_use',
+            'id': 'srvtoolu_01',
+            'name': 'web_search',
+            'input': <String, dynamic>{},
+          },
+        },
+        {
+          'index': 0,
+          'delta': {
+            'type': 'input_json_delta',
+            'partial_json': '{"query":"weather"}',
+          },
+        },
+        {'type': 'content_block_stop', 'index': 0},
+        {
+          'type': 'content_block_start',
+          'index': 1,
+          'content_block': {'type': 'tool_use', 'name': 'extract_recipe'},
+        },
+        {
+          'index': 1,
+          'delta': {
+            'type': 'input_json_delta',
+            'partial_json': '{"title":"Focaccia"}',
+          },
+        },
+        {'type': 'content_block_stop', 'index': 1},
+      ];
+      final frames = await streamPartialJsonFrom(
+        Stream.fromIterable(events),
+        anthropicToolDelta(),
+      ).toList();
+      expect(frames.last, {'title': 'Focaccia'});
+    });
+
+    test(
         'a tool stream with a leading text block parses through anthropicDelta',
         () async {
       // Regression: text_delta prose used to be concatenated onto the tool

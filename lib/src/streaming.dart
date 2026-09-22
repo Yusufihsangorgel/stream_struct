@@ -133,6 +133,16 @@ String? anthropicDelta(Map<String, dynamic> chunk) {
 /// to one buffer they stop parsing, so the second call and everything after
 /// it vanish without an error.
 ///
+/// A built-in server-side tool (web search, code execution, ...) opens its
+/// own `server_tool_use` content block and streams its input the same way —
+/// `content_block_start` naming the block, then `content_block_delta` events
+/// carrying `input_json_delta`/`partial_json`. That block is not a
+/// `tool_use` block, so it never claims the slot; once any
+/// `content_block_start` has been seen, this trusts that signal completely
+/// and stops falling back to "the first block whose delta carries JSON",
+/// so a server tool's JSON streamed ahead of the caller's tool call cannot
+/// steal the lock.
+///
 /// The extractor this returns locks onto a single block — by default the
 /// first tool call that starts, or pass [index] to follow a known one — and
 /// ignores fragments from the others. Because it remembers which block it
@@ -148,19 +158,21 @@ String? anthropicDelta(Map<String, dynamic> chunk) {
 /// values and cannot share a buffer.
 DeltaExtractor anthropicToolDelta({int? index}) {
   var followed = index;
+  var sawContentBlockStart = false;
   return (Map<String, dynamic> chunk) {
     final chunkIndex = chunk['index'];
     if (followed == null) {
       // Lock onto the first tool block that opens. A text block ("Let me look
       // that up.") usually comes first and never carries partial_json, so it
-      // must not claim the slot.
+      // must not claim the slot, and neither does a `server_tool_use` block.
       if (chunk['type'] == 'content_block_start' && chunkIndex is int) {
+        sawContentBlockStart = true;
         final block = chunk['content_block'];
         if (block is Map && block['type'] == 'tool_use') followed = chunkIndex;
       }
       // Without a content_block_start to go on — a caller feeding only delta
       // events — fall back to the first block that actually carries JSON.
-      if (followed == null && chunkIndex is int) {
+      if (followed == null && !sawContentBlockStart && chunkIndex is int) {
         final delta = chunk['delta'];
         if (delta is Map && delta['partial_json'] is String) {
           followed = chunkIndex;

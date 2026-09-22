@@ -1,3 +1,26 @@
+## 1.4.2
+
+- **Fix `anthropicToolDelta` locking onto a `server_tool_use` block instead
+  of the caller's forced tool call.** A built-in server-side tool (web
+  search, code execution, and the like) opens its own `server_tool_use`
+  content block and streams its input the same way a `tool_use` block does:
+  a `content_block_start` naming the block, then `content_block_delta`
+  events carrying `input_json_delta`/`partial_json`. The extractor's
+  fallback for a caller who feeds only delta events (no `content_block_start`
+  at all) used to fire on that block anyway, because it never recorded that
+  a `content_block_start` had already ruled the block out as not `tool_use`.
+  Ask a model to search the web and also force your own tool for structured
+  output, and `anthropicToolDelta()` would silently hand back the search
+  query's JSON instead of your tool's arguments — no error, just the wrong
+  object. Now, once any `content_block_start` has been seen, the extractor
+  trusts it completely and stops falling back to "the first block whose
+  delta carries JSON."
+
+  Nothing else moves: `anthropicToolDelta` still locks onto the first
+  `tool_use` block by default, `index` still selects a specific one, and the
+  no-`content_block_start` fallback still works for a caller who genuinely
+  feeds only delta events.
+
 ## 1.4.1
 
 - New `example/with_instructor.dart`. This package fills the object as tokens
