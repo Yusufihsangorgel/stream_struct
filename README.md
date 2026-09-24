@@ -80,9 +80,9 @@ that is still an unresolved scalar (`tr` on its way to `true`, `12.` on its way
 to a number). Treat `null` as "no update this frame" and keep the previous
 value; the next token resolves it. A fully decoded top-level `null` also comes
 back as `null`, which means `parsePartialJson` alone cannot tell "the value is
-`null`" from "nothing yet". If you need to, use `parsePartialJsonResult`, whose
-`hasValue` distinguishes them (this is why the streaming helpers can emit a
-resolved `null` exactly once).
+`null`" from "nothing yet". `streamPartialJson` keeps the two apart internally,
+which is why it can emit a resolved `null` exactly once; a single
+`parsePartialJson` call has no public way to do the same.
 
 Structure that has already arrived is returned even when it is still empty.
 `parsePartialJson('{"titl')` is `{}` rather than `null`: the buffer has told you

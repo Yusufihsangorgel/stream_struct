@@ -1,6 +1,8 @@
 # Examples
 
-Two programs, neither needing an API key or a network.
+Four programs, none of them needing an API key or a network. Three are
+described below; the fourth, `dart run example/two_providers.dart`, fills the
+same object from two providers' wire formats with the package's extractors.
 
 ## The idea, in isolation
 
