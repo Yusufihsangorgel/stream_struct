@@ -7,11 +7,11 @@ version: 1.4.2
 repository: https://github.com/Yusufihsangorgel/stream_struct
 issue_tracker: https://github.com/Yusufihsangorgel/stream_struct/issues
 topics:
-  - llm
-  - ai
-  - json
-  - streaming
   - structured-output
+  - partial-json
+  - json-streaming
+  - sse
+  - llm-streaming
 
 screenshots:
   - description: >-
