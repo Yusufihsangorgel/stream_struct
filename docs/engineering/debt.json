@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "package": "stream_struct",
+  "survey_digest": "f90f45c8a172068c3ed3b9488ba5a7cb4e58efa93c380d2d9a70b399349ec35e",
+  "items": [
+    {
+      "id": "stream_struct-D001",
+      "source_index": 1,
+      "source_item_digest": "6970faeea2cce3565320ac44525ebfd437cf873b5cd71c9fc12fbbb19e2b72d4",
+      "baseline_revision": "98a44bd",
+      "status": "open",
+      "size": "small",
+      "locations": [
+        {
+          "path": "lib/src/partial_json.dart",
+          "lines": "85-118,206-227"
+        }
+      ],
+      "kind": "duplicated logic",
+      "observation": "The state machine that scans strings and escapes is written twice, inside `_completeJson` and `_openClosers`. The second rescans the buffer from the start.",
+      "certainty": "confirmed",
+      "proposed_fix": "A single private scanner that returns the open-container stack. Safety net: the prefix property test at partial_json_test.dart:6.",
+      "related_rule_ids": [
+        "stream_struct/SS-04"
+      ],
+      "issue_url": null,
+      "closure_criteria": "A single private scanner returns the open-container stack and both _completeJson and _openClosers use it. The prefix property test in partial__test.dart passes.",
+      "review_trigger": "Before modifying the affected code",
+      "resolution": null
+    },
+    {
+      "id": "stream_struct-D002",
+      "source_index": 2,
+      "source_item_digest": "042cef879bbd57496fc984f0ad750b68492a41cf30814c3731f95c0e937baab9",
+      "baseline_revision": "98a44bd",
+      "status": "open",
+      "size": "small",
+      "locations": [
+        {
+          "path": "lib/src/partial_json.dart",
+          "lines": "138,146,173,188-189,193"
+        }
+      ],
+      "kind": "needless work on the hot path",
+      "observation": "On the path called for every delta, the RegExps are rebuilt on each call.",
+      "certainty": "confirmed",
+      "proposed_fix": "Top-level `final` RegExp constants.",
+      "related_rule_ids": [],
+      "issue_url": null,
+      "closure_criteria": "The RegExps are top-level final constants and none is built inside the per-delta path.",
+      "review_trigger": "Before modifying the affected code",
+      "resolution": null
+    },
+    {
+      "id": "stream_struct-D003",
+      "source_index": 3,
+      "source_item_digest": "f43989b671fc9501eda97635d6821a514724a602e22809df0a81c9c87c0541de",
+      "baseline_revision": "98a44bd",
+      "status": "open",
+      "size": "small",
+      "locations": [
+        {
+          "path": "lib/src/streaming.dart",
+          "lines": "386-388"
+        }
+      ],
+      "kind": "untracked promise",
+      "observation": "The dartdoc says 'generated builders are planned for a later release'. The same promise also appears in README.md:251-252 and CHANGELOG.md:363, with no tracked issue.",
+      "certainty": "confirmed",
+      "proposed_fix": "The dartdoc should describe only current behavior. Keep the plan in the README or in an issue.",
+      "related_rule_ids": [],
+      "issue_url": null,
+      "closure_criteria": "The streaming.dart dartdoc describes only current behavior and the builders plan lives in the README or a tracked issue.",
+      "review_trigger": "Before modifying the affected code",
+      "resolution": null
+    },
+    {
+      "id": "stream_struct-D004",
+      "source_index": 4,
+      "source_item_digest": "cb954bf0f8a1d7414028120a77f49ebb0ae0709c5f97926abae9db7a2d9b01f3",
+      "baseline_revision": "98a44bd",
+      "status": "open",
+      "size": "small",
+      "locations": [
+        {
+          "path": "lib/src/streaming.dart",
+          "lines": "5-315,317-401"
+        }
+      ],
+      "kind": "single responsibility violation + small duplication",
+      "observation": "Provider-specific extractors and provider-independent stream combinators live in the same 401-line file. A new provider changes the file of the general pipeline. streamPartialFrom and streamPartial repeat the same 'build if Map' loop.",
+      "certainty": "confirmed",
+      "proposed_fix": "Move the extractors to a separate lib/src file (the export stays the same). The From variant should delegate to a shared private helper.",
+      "related_rule_ids": [
+        "stream_struct/SS-01",
+        "stream_struct/SS-09"
+      ],
+      "issue_url": null,
+      "closure_criteria": "Provider extractors live in a separate lib/src file and the show list in lib/stream_struct.dart is unchanged. streamPartialFrom delegates to one shared helper and the public signatures keep the Map<String, dynamic> event type.",
+      "review_trigger": "Before modifying the affected code",
+      "resolution": null
+    }
+  ]
+}
