@@ -32,6 +32,29 @@ a text block that carries JSON.
 Skip it if the whole response lands in well under a second, because then partial
 parsing buys you nothing that a spinner does not.
 
+**Next to `llm_json_stream`**
+
+[`llm_json_stream`](https://pub.dev/packages/llm_json_stream) is another Dart
+package for parsing a model's JSON as it streams. Both read partial JSON. They
+differ in where they start and in what they give back. What follows about it
+was checked against its 1.0.0 source.
+
+|               | `stream_struct`                                                                    | `llm_json_stream`                                                        |
+| ------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Input         | raw event-stream bytes, decoded event maps, or text fragments                      | a `Stream<String>` of text fragments                                     |
+| Provider glue | SSE decoding, and extractors for three providers' events, tool calls included      | none: you turn each provider chunk into text yourself                    |
+| What you get  | the whole object so far, each time it changes                                      | per-property subscriptions (string chunks, futures, callbacks), plus a stream of root snapshots |
+
+- Pick `stream_struct` when you start from an HTTP response body, or when the
+  JSON arrives as a forced tool call and `partial_json`, `function.arguments`
+  or `functionCall.args` has to be found in each event (Gemini sends its args
+  whole, in one event).
+- Pick `llm_json_stream` when you already have the text as a `Stream<String>`
+  and want to react to single fields: append string chunks to one label, await
+  one finished value, or get a callback when a list element starts. Here
+  `stream_struct` hands you the whole object each time, and you compare frames
+  yourself to see what changed.
+
 A model asked for JSON emits it one token at a time. Mid-stream you are holding
 something like `{"title": "The quick bro` , which `jsonDecode` throws on until
 the very last token lands. So the usual choices are to wait for the whole

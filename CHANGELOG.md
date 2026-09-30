@@ -5,6 +5,8 @@
 - README: removed the comparison with another package and the timings for
   1,000 and 4,000 elements. Nothing in this repository measures them.
 - example/README: lists all four examples, including `two_providers.dart`.
+- README: added a short comparison with `llm_json_stream`. It lists what each
+  package takes as input and gives back, and has no timings.
 
 ## 1.4.2
 
