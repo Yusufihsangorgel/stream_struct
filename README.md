@@ -15,19 +15,10 @@ time and it accepts 1 of the 150 non-empty prefixes, while `parsePartialJson`
 accepts all 150. `dart run tool/growth_figure.dart` measures that and refuses to
 write the drawing when the numbers stop holding.
 
-**Instead of `llm_json_stream`.** It is the larger reactive parser, with path
-subscriptions and per-property streams, and it starts one layer above the wire.
-Its provider snippets all take a chunk some SDK has already decoded
-(`README.md:449` and `:466`); grep it for `event-stream` or `HttpClientResponse`
-and there are no hits at all. The only nearby string in the whole package is a
-`utf8.decoder` call in an example CLI that reads from stdin, not from a
-provider's HTTP response, so it doesn't change the picture: a plain
-`package:http` call still means writing the SSE framing first. `sseData`
-(`lib/src/sse.dart:31`) is that step. Its Anthropic snippet reads
-`event.delta?.text` (`README.md:466`), which is the prose block. A forced tool
-call streams through `partial_json`, a string that appears nowhere in that
-package; `anthropicDelta` (`lib/src/streaming.dart:49`) reads it, and
-`anthropicTextDelta` (`:115`) reads the other one.
+**Instead of writing the wire step yourself.** This package decodes raw event
+streams with `sseData` and includes extractors for structured output.
+One extractor reads the partial JSON of a forced tool call, and another reads
+a text block that carries JSON.
 
 **Reach for it when**
 
@@ -80,9 +71,8 @@ that is still an unresolved scalar (`tr` on its way to `true`, `12.` on its way
 to a number). Treat `null` as "no update this frame" and keep the previous
 value; the next token resolves it. A fully decoded top-level `null` also comes
 back as `null`, which means `parsePartialJson` alone cannot tell "the value is
-`null`" from "nothing yet". If you need to, use `parsePartialJsonResult`, whose
-`hasValue` distinguishes them (this is why the streaming helpers can emit a
-resolved `null` exactly once).
+`null`" from "nothing yet". Use `streamPartialJson` when you need to tell a
+decoded `null` from an incomplete value: it emits a resolved `null` once.
 
 Structure that has already arrived is returned even when it is still empty.
 `parsePartialJson('{"titl')` is `{}` rather than `null`: the buffer has told you
@@ -238,13 +228,12 @@ filled appears as an empty one.
 
 `streamPartialJson` re-parses the whole buffer on every delta, so the work is
 quadratic in the length of the response: a stream twice as long costs about four
-times as much, not twice. Measured on a growing JSON array, 1,000 elements took
-about a second and 4,000 took about fourteen. For the interactive case this is
-built for (a model streaming a UI-sized object at reading speed) that cost is
-invisible. It becomes real for a large machine-to-machine payload: if you are
-streaming a multi-megabyte document only to consume the final value, decode it
-once at the end with `dart:convert` instead, and use this package for the
-partials you actually render.
+times as much, not twice. Measure large payloads in your own environment. For
+the interactive case this is built for (a model streaming a UI-sized object at
+reading speed) that cost is invisible. It becomes real for a large
+machine-to-machine payload: if you are streaming a multi-megabyte document only
+to consume the final value, decode it once at the end with `dart:convert`
+instead, and use this package for the partials you actually render.
 
 ## Roadmap
 

@@ -1,3 +1,11 @@
+## 1.4.3
+
+- README: the `null` note now points to `streamPartialJson`, which is exported.
+  `parsePartialJsonResult` is internal.
+- README: removed the comparison with another package and the timings for
+  1,000 and 4,000 elements. Nothing in this repository measures them.
+- example/README: lists all four examples, including `two_providers.dart`.
+
 ## 1.4.2
 
 - **Fix `anthropicToolDelta` locking onto a `server_tool_use` block instead

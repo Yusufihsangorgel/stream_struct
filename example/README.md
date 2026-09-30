@@ -1,6 +1,6 @@
 # Examples
 
-Two programs, neither needing an API key or a network.
+Four programs, none needing an API key or a network.
 
 ## The idea, in isolation
 
@@ -94,6 +94,16 @@ Take the right-hand column when the source is a decoded SSE stream, which it is
 whenever you are talking to OpenAI, Anthropic, or Gemini. Take the left when you
 already hold the text deltas, for instance from a provider SDK that has done the
 decoding for you.
+
+## The same object from two providers
+
+```
+dart run example/two_providers.dart
+```
+
+`two_providers.dart` fills one object from a forced tool call in two different
+wire formats, using canned chunks. Only the extractor changes, and the package
+ships one extractor for each format. The example file shows which is which.
 
 ## A validated object at the end
 
